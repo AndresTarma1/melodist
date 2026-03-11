@@ -1,0 +1,578 @@
+package com.example.melodist.ui.screens
+
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Explicit
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.example.melodist.navigation.Route
+import com.example.melodist.player.DownloadState
+import com.example.melodist.ui.components.DownloadIndicator
+import com.example.melodist.ui.components.LoadingMoreSongsItem
+import com.example.melodist.ui.components.MelodistImage
+import com.example.melodist.ui.components.PlaceholderType
+import com.example.melodist.ui.components.SongContextMenu
+import com.example.melodist.utils.LocalDownloadViewModel
+import com.example.melodist.utils.LocalPlayerViewModel
+import com.metrolist.innertube.models.SongItem
+import com.metrolist.innertube.pages.PlaylistPage
+
+@Composable
+internal fun PlaylistWide(
+    playlistPage: PlaylistPage,
+    songs: List<SongItem>,
+    hasMore: Boolean,
+    onLoadMore: () -> Unit,
+    onSurfaceColor: Color,
+    onSurfaceVariant: Color,
+    onNavigate: (Route) -> Unit,
+    isSaved: Boolean,
+    isSaving: Boolean = false,
+    isLoadingForPlay: Boolean = false,
+    onToggleSave: () -> Unit,
+    onPlayAll: () -> Unit = {},
+    onShuffle: () -> Unit = {},
+) {
+    val playerViewModel = LocalPlayerViewModel.current
+    val downloadViewModel = LocalDownloadViewModel.current
+    val downloadStates by downloadViewModel.downloadStates.collectAsState()
+
+    val isAnyDownloading = remember(songs, downloadStates) {
+        songs.any { song ->
+            val state = downloadStates[song.id]
+            state is DownloadState.Queued || state is DownloadState.Downloading
+        }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 48.dp, end = 24.dp, top = 48.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .width(300.dp)
+                .fillMaxHeight()
+                .verticalScroll(rememberScrollState())
+                .padding(top = 8.dp, bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            PlaylistInfoPanel(
+                playlistPage = playlistPage,
+                onSurfaceColor = onSurfaceColor,
+                onSurfaceVariant = onSurfaceVariant,
+                coverSize = 240.dp,
+                isSaved = isSaved,
+                isSaving = isSaving,
+                isLoadingForPlay = isLoadingForPlay,
+                onToggleSave = onToggleSave,
+                onPlayAll = onPlayAll,
+                onShuffle = onShuffle,
+                onDownloadAll = { downloadViewModel.downloadAll(songs) },
+                isDownloadingAny = isAnyDownloading
+            )
+        }
+
+        Spacer(Modifier.width(32.dp))
+
+        Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+            val lazyListState = rememberLazyListState()
+
+            LazyColumn(
+                state = lazyListState,
+                modifier = Modifier.fillMaxSize().padding(start = 8.dp, end = 16.dp)
+            ) {
+                itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
+                    PlaylistSongItem(
+                        index = index + 1,
+                        song = song,
+                        onNavigate = onNavigate,
+                        onClick = {
+                            playerViewModel.playPlaylist(
+                                songs, index,
+                                playlistPage.playlist.id,
+                                playlistPage.playlist.title
+                            )
+                        },
+                        downloadState = downloadStates[song.id]
+                    )
+                    if (index < songs.lastIndex) {
+                        HorizontalDivider(
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
+                            modifier = Modifier.padding(start = 48.dp)
+                        )
+                    }
+                }
+                if (hasMore) item { LoadingMoreSongsItem(onLoadMore = onLoadMore) }
+                item { Spacer(modifier = Modifier.height(80.dp)) }
+            }
+
+            VerticalScrollbar(
+                adapter = rememberScrollbarAdapter(lazyListState),
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight()
+                    .padding(vertical = 12.dp),
+                style = LocalScrollbarStyle.current.copy(
+                    thickness = 4.dp,
+                    unhoverColor = onSurfaceVariant.copy(alpha = 0.08f),
+                    hoverColor = onSurfaceVariant.copy(alpha = 0.25f),
+                    shape = RoundedCornerShape(2.dp)
+                )
+            )
+        }
+    }
+}
+
+@Composable
+internal fun PlaylistCompact(
+    playlistPage: PlaylistPage,
+    songs: List<SongItem>,
+    hasMore: Boolean,
+    onLoadMore: () -> Unit,
+    onSurfaceColor: Color,
+    onSurfaceVariant: Color,
+    onNavigate: (Route) -> Unit,
+    isSaved: Boolean,
+    isSaving: Boolean = false,
+    isLoadingForPlay: Boolean = false,
+    onToggleSave: () -> Unit,
+    onPlayAll: () -> Unit = {},
+    onShuffle: () -> Unit = {},
+) {
+    val playerViewModel = LocalPlayerViewModel.current
+    val downloadViewModel = LocalDownloadViewModel.current
+    val downloadStates by downloadViewModel.downloadStates.collectAsState()
+
+    val isAnyDownloading = remember(songs, downloadStates) {
+        songs.any { song ->
+            val state = downloadStates[song.id]
+            state is DownloadState.Queued || state is DownloadState.Downloading
+        }
+    }
+
+    val lazyListState = rememberLazyListState()
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = lazyListState,
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item {
+                PlaylistInfoPanel(
+                    playlistPage = playlistPage,
+                    onSurfaceColor = onSurfaceColor,
+                    onSurfaceVariant = onSurfaceVariant,
+                    coverSize = 200.dp,
+                    isSaved = isSaved,
+                    isSaving = isSaving,
+                    isLoadingForPlay = isLoadingForPlay,
+                    onToggleSave = onToggleSave,
+                    onPlayAll = onPlayAll,
+                    onShuffle = onShuffle,
+                    onDownloadAll = { downloadViewModel.downloadAll(songs) },
+                    isDownloadingAny = isAnyDownloading
+                )
+
+                Spacer(Modifier.height(24.dp))
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+            }
+
+            itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
+                PlaylistSongItem(
+                    index = index + 1,
+                    song = song,
+                    onNavigate = onNavigate,
+                    onClick = {
+                        playerViewModel.playPlaylist(
+                            songs, index,
+                            playlistPage.playlist.id,
+                            playlistPage.playlist.title
+                        )
+                    },
+                    downloadState = downloadStates[song.id],
+                )
+                if (index < songs.lastIndex) {
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
+                        modifier = Modifier.padding(start = 48.dp)
+                    )
+                }
+            }
+
+            if (hasMore) item { LoadingMoreSongsItem(onLoadMore = onLoadMore) }
+            item { Spacer(modifier = Modifier.height(80.dp)) }
+        }
+
+        VerticalScrollbar(
+            adapter = rememberScrollbarAdapter(lazyListState),
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight()
+                .padding(vertical = 12.dp),
+            style = LocalScrollbarStyle.current.copy(
+                thickness = 4.dp,
+                unhoverColor = onSurfaceVariant.copy(alpha = 0.08f),
+                hoverColor = onSurfaceVariant.copy(alpha = 0.25f),
+                shape = RoundedCornerShape(2.dp)
+            )
+        )
+    }
+}
+
+@Composable
+internal fun PlaylistInfoPanel(
+    playlistPage: PlaylistPage,
+    onSurfaceColor: Color,
+    onSurfaceVariant: Color,
+    coverSize: Dp,
+    isSaved: Boolean,
+    isSaving: Boolean = false,
+    isLoadingForPlay: Boolean = false,
+    onToggleSave: () -> Unit,
+    onPlayAll: () -> Unit = {},
+    onShuffle: () -> Unit = {},
+    onDownloadAll: () -> Unit = {},
+    isDownloadingAny: Boolean = false,
+) {
+    playlistPage.playlist.author?.let { author ->
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .clickable { }
+                .pointerHoverIcon(PointerIcon.Hand)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                ) {
+                    MelodistImage(
+                        url = null,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        shape = CircleShape,
+                        placeholderType = PlaceholderType.ARTIST,
+                        iconSize = 14.dp
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    author.name,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = onSurfaceColor
+                )
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+    }
+
+    Card(
+        modifier = Modifier
+            .size(coverSize)
+            .shadow(24.dp, RoundedCornerShape(8.dp)),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        MelodistImage(
+            url = playlistPage.playlist.thumbnail,
+            contentDescription = playlistPage.playlist.title,
+            modifier = Modifier.fillMaxSize(),
+            placeholderType = PlaceholderType.PLAYLIST,
+            iconSize = coverSize * 0.33f
+        )
+    }
+
+    Spacer(Modifier.height(24.dp))
+
+    Text(
+        text = playlistPage.playlist.title,
+        style = MaterialTheme.typography.headlineMedium,
+        fontWeight = FontWeight.Bold,
+        textAlign = TextAlign.Center,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        color = onSurfaceColor
+    )
+
+    Spacer(Modifier.height(6.dp))
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Text(
+            "Playlist",
+            style = MaterialTheme.typography.bodyMedium,
+            color = onSurfaceVariant
+        )
+        val songCountText = playlistPage.playlist.songCountText
+        if (!songCountText.isNullOrBlank()) {
+            Text(
+                " • $songCountText",
+                style = MaterialTheme.typography.bodyMedium,
+                color = onSurfaceVariant
+            )
+        }
+    }
+
+    Spacer(Modifier.height(24.dp))
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        IconButton(
+            onClick = { if (!isSaving) onToggleSave() },
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .pointerHoverIcon(if (isSaving) PointerIcon.Default else PointerIcon.Hand)
+        ) {
+            if (isSaving) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                Icon(
+                    if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
+                    null,
+                    tint = if (isSaved) MaterialTheme.colorScheme.primary else onSurfaceColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        FloatingActionButton(
+            onClick = { if (!isLoadingForPlay) onPlayAll() },
+            shape = CircleShape,
+            containerColor = Color.White,
+            contentColor = Color.Black,
+            modifier = Modifier.size(56.dp)
+                .pointerHoverIcon(if (isLoadingForPlay) PointerIcon.Default else PointerIcon.Hand)
+        ) {
+            if (isLoadingForPlay) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    strokeWidth = 2.5.dp,
+                    color = Color.Black
+                )
+            } else {
+                Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(28.dp))
+            }
+        }
+
+        IconButton(
+            onClick = { if (!isLoadingForPlay) onShuffle() },
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .pointerHoverIcon(PointerIcon.Hand)
+        ) {
+            Icon(
+                Icons.Default.Shuffle,
+                null,
+                tint = onSurfaceColor,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        IconButton(
+            onClick = onDownloadAll,
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .pointerHoverIcon(PointerIcon.Hand)
+        ) {
+            if (isDownloadingAny) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            } else {
+                Icon(
+                    Icons.Default.Download,
+                    null,
+                    tint = onSurfaceColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+internal fun PlaylistSongItem(
+    index: Int,
+    song: SongItem,
+    onNavigate: (Route) -> Unit,
+    onClick: () -> Unit = {},
+    downloadState: DownloadState? = null,
+) {
+    val playerViewModel = LocalPlayerViewModel.current
+    val downloadViewModel = LocalDownloadViewModel.current
+
+    var isHovered by remember { mutableStateOf(false) }
+    var showContextMenu by remember { mutableStateOf(false) }
+
+    val color = if (isHovered) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f) else Color.Transparent
+
+    Box {
+        Surface(
+            color = color,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onClick() }
+                .pointerHoverIcon(PointerIcon.Hand)
+                .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+                .onPointerEvent(PointerEventType.Exit) { isHovered = false }
+                .onPointerEvent(PointerEventType.Press) {
+                    if (it.button == PointerButton.Secondary) {
+                        showContextMenu = true
+                    }
+                }
+        ) {
+            Row(
+                modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier.width(36.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isHovered) {
+                        Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White)
+                    } else {
+                        Text(
+                            text = index.toString(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.5f),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(8.dp))
+
+                MelodistImage(
+                    url = song.thumbnail,
+                    contentDescription = song.title,
+                    modifier = Modifier.size(44.dp),
+                    shape = RoundedCornerShape(6.dp),
+                    placeholderType = PlaceholderType.SONG,
+                    iconSize = 20.dp
+                )
+
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = song.title,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (song.explicit) {
+                            Icon(
+                                Icons.Default.Explicit, null,
+                                modifier = Modifier.size(14.dp),
+                                tint = Color.White.copy(alpha = 0.5f)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                        }
+                        Text(
+                            text = song.artists.joinToString(", ") { it.name }
+                                .ifEmpty { "Artista desconocido" },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.6f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        song.album?.let { album ->
+                            Text(
+                                text = " • ${album.name}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.4f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                DownloadIndicator(
+                    state = downloadState,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+
+                Text(
+                    text = formatDuration(song.duration ?: 0),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Normal
+                )
+            }
+        }
+
+        SongContextMenu(
+            expanded = showContextMenu,
+            onDismiss = { showContextMenu = false },
+            song = song,
+            downloadState = downloadState,
+            onDownload = { downloadViewModel.downloadSong(song) },
+            onRemoveDownload = { downloadViewModel.removeDownload(song.id) },
+            onCancelDownload = { downloadViewModel.cancelDownload(song.id) },
+            onAddToQueue = { playerViewModel.addToQueue(song) },
+            onPlayNext = { playerViewModel.playNext(song) }
+        )
+    }
+}

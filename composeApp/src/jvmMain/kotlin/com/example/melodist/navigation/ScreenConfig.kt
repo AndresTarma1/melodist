@@ -1,0 +1,31 @@
+package com.example.melodist.navigation
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+sealed class ScreenConfig {
+    @Serializable
+    data object Home : ScreenConfig()
+
+    @Serializable
+    data object Search : ScreenConfig()
+
+    @Serializable
+    data object Library : ScreenConfig()
+
+    @Serializable
+    data object Account : ScreenConfig()
+
+    @Serializable
+    data object Settings : ScreenConfig()
+
+    @Serializable
+    data class Album(val browseId: String) : ScreenConfig()
+
+    @Serializable
+    data class Playlist(val playlistId: String) : ScreenConfig()
+
+    @Serializable
+    data class Artist(val artistId: String) : ScreenConfig()
+}
+

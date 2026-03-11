@@ -1,0 +1,43 @@
+CREATE TABLE IF NOT EXISTS Artist (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    thumbnailUrl TEXT,
+    channelId TEXT,
+    lastUpdateTime INTEGER NOT NULL DEFAULT 0,
+    bookmarkedAt INTEGER,
+    isLocal INTEGER NOT NULL DEFAULT 0
+);
+
+selectAllArtists:
+SELECT * FROM Artist;
+
+artistById:
+SELECT * FROM Artist WHERE id = ?;
+
+artistsByIds:
+SELECT * FROM Artist WHERE id IN ?;
+
+bookmarkedArtists:
+SELECT * FROM Artist WHERE bookmarkedAt IS NOT NULL ORDER BY bookmarkedAt DESC;
+
+insertArtist:
+INSERT OR REPLACE INTO Artist (id, name, thumbnailUrl, channelId, lastUpdateTime, bookmarkedAt, isLocal)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+insertArtistIfNotExists:
+INSERT OR IGNORE INTO Artist (id, name, thumbnailUrl, channelId, lastUpdateTime, bookmarkedAt, isLocal)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+updateArtist:
+UPDATE Artist SET name = ?, thumbnailUrl = ?, channelId = ?, lastUpdateTime = ?, bookmarkedAt = ?
+WHERE id = ?;
+
+updateArtistBookmark:
+UPDATE Artist SET bookmarkedAt = ? WHERE id = ?;
+
+deleteArtist:
+DELETE FROM Artist WHERE id = ?;
+
+artistExists:
+SELECT COUNT(*) > 0 FROM Artist WHERE id = ?;
+

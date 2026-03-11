@@ -1,0 +1,12 @@
+package com.example.melodist.utils
+
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.staticCompositionLocalOf
+import com.example.melodist.viewmodels.DownloadViewModel
+import com.example.melodist.viewmodels.PlayerViewModel
+
+val LocalPlayerViewModel = staticCompositionLocalOf<PlayerViewModel> { error("No PlayerViewModel provided") }
+
+val LocalDownloadViewModel = staticCompositionLocalOf<DownloadViewModel> {
+    error("No se ha proporcionado un DownloadViewModel")
+}
