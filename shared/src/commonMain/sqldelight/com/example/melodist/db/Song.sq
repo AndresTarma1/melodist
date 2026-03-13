@@ -102,3 +102,6 @@ UPDATE Song SET isDownloaded = ?, dateDownload = ? WHERE id = ?;
 downloadedSongsCount:
 SELECT COUNT(1) FROM Song WHERE isDownloaded = 1;
 
+countDownloadedByAlbum:
+SELECT COUNT(*) FROM Song WHERE albumId = ? AND isDownloaded = 1;
+

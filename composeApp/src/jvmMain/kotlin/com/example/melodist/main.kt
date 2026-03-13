@@ -18,11 +18,11 @@ import com.example.melodist.player.PlaybackState
 import com.example.melodist.player.PlayerService
 import com.example.melodist.player.WindowsMediaSession
 import com.example.melodist.viewmodels.PlayerViewModel
-import com.sun.jna.Native
-import com.sun.jna.Platform
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import com.kdroid.composetray.tray.api.Tray
+import melodist.composeapp.generated.resources.Res
+import melodist.composeapp.generated.resources.music_icon
 import org.jetbrains.compose.resources.painterResource
 import java.util.logging.Level
 import java.util.logging.Logger
@@ -47,24 +47,16 @@ fun main() {
     }
 
     val playerViewModel = koinApp.koin.get<PlayerViewModel>()
-
-    // Configurar callbacks SMTC (botones del overlay de Windows)
     val mediaSession = koinApp.koin.get<WindowsMediaSession>()
+    mediaSession.initialize()
     mediaSession.setCallbacks(
-        onPlay     = { playerViewModel.togglePlayPause() },
-        onPause    = { playerViewModel.togglePlayPause() },
-        onNext     = { playerViewModel.next() },
+        onPlay = { playerViewModel.togglePlayPause() },
+        onPause = { playerViewModel.togglePlayPause() },
+        onNext = { playerViewModel.next() },
         onPrevious = { playerViewModel.previous() },
-        onStop     = { playerViewModel.stop() },
+        onStop = { playerViewModel.stop() },
     )
-
-    // Teclas multimedia físicas del teclado (Play/Pause/Next/Prev/Stop)
-    val mediaKeyListener = MediaKeyListener(
-        onPlayPause = { playerViewModel.togglePlayPause() },
-        onNext      = { playerViewModel.next() },
-        onPrevious  = { playerViewModel.previous() },
-        onStop      = { playerViewModel.stop() },
-    ).apply { register() }
+    mediaSession.setPositionProvider { playerViewModel.progressState.value.positionMs }
 
     application {
         val lifecycle = remember { LifecycleRegistry() }
@@ -81,7 +73,6 @@ fun main() {
         val minimizeToTray by AppPreferences.minimizeToTray.collectAsState()
 
         fun doExit() {
-            mediaKeyListener.unregister()  // liberar teclas globales
             mediaSession.release()
             try { koinApp.koin.get<PlayerService>().release() } catch (_: Exception) {}
             stopKoin()
@@ -106,7 +97,7 @@ fun main() {
             }
         }
 
-        val appIcon = painterResource("music_icon_32.svg")
+        val appIcon = painterResource(Res.drawable.music_icon)
         Window(
             onCloseRequest = { if (minimizeToTray) isVisible = false else doExit() },
             visible = isVisible,
@@ -119,17 +110,6 @@ fun main() {
             LaunchedEffect(Unit) {
                 window.rootPane?.windowDecorationStyle = JRootPane.NONE
                 window.minimumSize = java.awt.Dimension(800, 500)
-
-                // Registrar ventana con Windows SMTC una única vez al inicio.
-                // La sincronización de metadatos/estado la hace PlayerViewModel internamente.
-                if (Platform.isWindows()) {
-                    try {
-                        val hwnd = Native.getWindowID(window)
-                        mediaSession.initialize(hwnd)
-                    } catch (e: Throwable) {
-                        logger.warning("No se pudo inicializar SMTC: ${e.message}")
-                    }
-                }
             }
 
 

@@ -41,4 +41,11 @@ INNER JOIN SongAlbumMap ON SongArtistMap.songId = SongAlbumMap.songId
 WHERE SongAlbumMap.albumId = ?
 ORDER BY SongArtistMap.songId, SongArtistMap.position;
 
+artistsForDownloadedSongs:
+SELECT SongArtistMap.songId, Artist.id, Artist.name
+FROM SongArtistMap
+INNER JOIN Artist ON SongArtistMap.artistId = Artist.id
+INNER JOIN Song ON SongArtistMap.songId = Song.id
+WHERE Song.isDownloaded = 1
+ORDER BY SongArtistMap.songId, SongArtistMap.position;
 

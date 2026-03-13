@@ -101,6 +101,9 @@ class DownloadService(
         /** Back-off base delay between retries. */
         private const val RETRY_BASE_DELAY_MS = 500L
 
+        /** Threshold for emitting progress updates (default 100KB) */
+        private const val PROGRESS_THRESHOLD_BYTES = 100_000L
+
         private const val USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0"
         private const val REFERER = "https://music.youtube.com/"
@@ -308,8 +311,8 @@ class DownloadService(
                             downloadedBytes += bytesRead
                             chunkSuccess = true
 
-                            // Throttle UI updates: only emit every ~100KB
-                            if (downloadedBytes - lastProgressUpdate > 100_000 || downloadedBytes >= totalBytes) {
+                            // Throttle UI updates: only emit when threshold corresponds
+                            if (downloadedBytes - lastProgressUpdate > PROGRESS_THRESHOLD_BYTES || downloadedBytes >= totalBytes) {
                                 lastProgressUpdate = downloadedBytes
                                 val progress = (downloadedBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
                                 _downloadStates.update { it + (songId to DownloadState.Downloading(progress)) }

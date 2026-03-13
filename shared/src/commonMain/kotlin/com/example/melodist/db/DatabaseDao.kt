@@ -355,6 +355,12 @@ class DatabaseDao(private val database: MelodistDatabase) {
     fun songIdsInPlaylist(playlistId: String): List<String> =
         database.playlistSongMapQueries.selectByPlaylist(playlistId).executeAsList().map { it.songId }
 
+    fun countByPlaylist(playlistId: String): Long =
+        database.playlistSongMapQueries.countByPlaylist(playlistId).executeAsOne()
+
+    fun countDownloadedByPlaylist(playlistId: String): Long =
+        database.playlistSongMapQueries.countDownloadedByPlaylist(playlistId).executeAsOne()
+
     // ─── Events ─────────────────────────────────────────────
 
     suspend fun insertEvent(songId: String, timestamp: LocalDateTime, playTime: Long) = withContext(Dispatchers.IO) {
@@ -396,6 +402,15 @@ class DatabaseDao(private val database: MelodistDatabase) {
         database.songQueries.downloadedSongs(::buildSongEntity)
             .asFlow()
             .mapToList(Dispatchers.IO)
+
+    fun downloadedSongsCount(): Flow<Long> =
+        database.songQueries.downloadedSongsCount()
+            .asFlow()
+            .mapToOneOrNull(Dispatchers.IO)
+            .map { it ?: 0L }
+
+    fun countDownloadedByAlbum(albumId: String): Long =
+        database.songQueries.countDownloadedByAlbum(albumId).executeAsOne()
 
     /**
      * Returns downloaded songs enriched with artist names from the song-artist map.

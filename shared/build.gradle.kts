@@ -25,6 +25,7 @@ kotlin {
         jvmMain.dependencies {
             api(libs.sqldelight.driver.jvm)
             api(libs.vlcj)
+            implementation("dev.toastbits:mediasession:0.1.1")
         }
     }
 }

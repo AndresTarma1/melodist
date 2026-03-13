@@ -20,7 +20,10 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.melodist.navigation.Route
@@ -42,6 +45,12 @@ import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.pages.HomePage
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import com.example.melodist.ui.components.SongContextMenu
+import com.example.melodist.ui.helpers.rememberSongDownloadState
+import com.example.melodist.utils.LocalDownloadViewModel
 
 @Composable
 fun HomeScreenRoute(
@@ -236,6 +245,7 @@ fun HomeScreenContent(
     }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
     val isArtist = item is ArtistItem
@@ -251,16 +261,31 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
 
     val cardWidth    = item.musicItemCardWidth()
     val aspectRatio  = item.thumbnailAspectRatio()
+    
+    var showMenu by remember { mutableStateOf(false) }
+    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
+    var itemHeight by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
 
-    Column(
-        modifier = Modifier
-            .width(cardWidth)
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onClick(item) }
-            .pointerHoverIcon(PointerIcon.Hand)
-            .padding(8.dp),
-        horizontalAlignment = alignment
-    ) {
+    Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
+        Column(
+            modifier = Modifier
+                .width(cardWidth)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { onClick(item) }
+                .pointerHoverIcon(PointerIcon.Hand)
+                .onPointerEvent(PointerEventType.Press) {
+                    if (item is SongItem && it.button == PointerButton.Secondary) {
+                        val position = it.changes.first().position
+                        val xDp = with(density) { position.x.toDp() }
+                        val yDp = with(density) { (position.y - itemHeight).toDp() }
+                        menuOffset = DpOffset(xDp, yDp)
+                        showMenu = true
+                    }
+                }
+                .padding(8.dp),
+            horizontalAlignment = alignment
+        ) {
         MelodistImage(
             url = item.thumbnail,
             contentDescription = item.title,
@@ -304,6 +329,26 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
                 textAlign = titleTextAlign
             )
         }
+    }
+    
+    if (item is SongItem) {
+        val downloadViewModel = LocalDownloadViewModel.current
+        val playerViewModel = LocalPlayerViewModel.current
+        val downloadState by rememberSongDownloadState(item.id, downloadViewModel)
+
+        SongContextMenu(
+            expanded = showMenu,
+            onDismiss = { showMenu = false },
+            song = item,
+            downloadState = downloadState,
+            onDownload = { downloadViewModel.downloadSong(item) },
+            onRemoveDownload = { downloadViewModel.removeDownload(item.id) },
+            onCancelDownload = { downloadViewModel.cancelDownload(item.id) },
+            onAddToQueue = { playerViewModel?.addToQueue(item) },
+            onPlayNext = { playerViewModel?.playNext(item) },
+            offset = menuOffset
+        )
+    }
     }
 }
 

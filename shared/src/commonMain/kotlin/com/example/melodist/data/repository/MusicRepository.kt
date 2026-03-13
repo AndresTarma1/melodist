@@ -407,6 +407,22 @@ class MusicRepository(
         return savedPlaylistToPlaylistItem(saved)
     }
 
+    /**
+     * Returns all downloaded songs as SongItems, enriched with artist info.
+     * Used for the special "Descargas" local playlist.
+     */
+    suspend fun getDownloadedSongs(): List<SongItem> = withContext(Dispatchers.IO) {
+        val songs = database.songQueries.downloadedSongs().executeAsList()
+        if (songs.isEmpty()) return@withContext emptyList()
+
+        val artistRows = database.songArtistMapQueries.artistsForDownloadedSongs().executeAsList()
+        val artistsBySong: Map<String, List<Artist>> = artistRows
+            .groupBy { it.songId }
+            .mapValues { (_, rows) -> rows.map { row -> Artist(name = row.name, id = row.id) } }
+
+        songs.map { song -> dbSongToSongItem(song, artistsBySong[song.id] ?: emptyList()) }
+    }
+
     // ─── Mappers ────────────────────────────────────────────
 
     fun savedAlbumToAlbumItem(saved: SavedAlbum): AlbumItem {

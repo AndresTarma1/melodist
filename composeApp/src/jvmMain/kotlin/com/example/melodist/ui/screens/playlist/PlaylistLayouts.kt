@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Explicit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
@@ -41,6 +42,7 @@ import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.SongContextMenu
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
+import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.PlaylistPage
 
@@ -62,14 +64,15 @@ internal fun PlaylistWide(
 ) {
     val playerViewModel = LocalPlayerViewModel.current
     val downloadViewModel = LocalDownloadViewModel.current
-    val downloadStates by downloadViewModel.downloadStates.collectAsState()
 
-    val isAnyDownloading = remember(songs, downloadStates) {
-        songs.any { song ->
-            val state = downloadStates[song.id]
-            state is DownloadState.Queued || state is DownloadState.Downloading
-        }
-    }
+    val songIds = remember(songs) { songs.map { it.id } }
+    val isAnyDownloading by remember(songIds, downloadViewModel) {
+        downloadViewModel.isAnyDownloadingFlow(songIds)
+    }.collectAsState(initial = false)
+
+    val isFullyDownloaded by remember(songIds, downloadViewModel) {
+        downloadViewModel.isFullyDownloadedFlow(songIds)
+    }.collectAsState(initial = false)
 
     Row(
         modifier = Modifier
@@ -96,7 +99,8 @@ internal fun PlaylistWide(
                 onPlayAll = onPlayAll,
                 onShuffle = onShuffle,
                 onDownloadAll = { downloadViewModel.downloadAll(songs) },
-                isDownloadingAny = isAnyDownloading
+                isDownloadingAny = isAnyDownloading,
+                isFullyDownloaded = isFullyDownloaded
             )
         }
 
@@ -120,8 +124,7 @@ internal fun PlaylistWide(
                                 playlistPage.playlist.id,
                                 playlistPage.playlist.title
                             )
-                        },
-                        downloadState = downloadStates[song.id]
+                        }
                     )
                     if (index < songs.lastIndex) {
                         HorizontalDivider(
@@ -167,14 +170,15 @@ internal fun PlaylistCompact(
 ) {
     val playerViewModel = LocalPlayerViewModel.current
     val downloadViewModel = LocalDownloadViewModel.current
-    val downloadStates by downloadViewModel.downloadStates.collectAsState()
 
-    val isAnyDownloading = remember(songs, downloadStates) {
-        songs.any { song ->
-            val state = downloadStates[song.id]
-            state is DownloadState.Queued || state is DownloadState.Downloading
-        }
-    }
+    val songIds = remember(songs) { songs.map { it.id } }
+    val isAnyDownloading by remember(songIds, downloadViewModel) {
+        downloadViewModel.isAnyDownloadingFlow(songIds)
+    }.collectAsState(initial = false)
+
+    val isFullyDownloaded by remember(songIds, downloadViewModel) {
+        downloadViewModel.isFullyDownloadedFlow(songIds)
+    }.collectAsState(initial = false)
 
     val lazyListState = rememberLazyListState()
 
@@ -199,7 +203,8 @@ internal fun PlaylistCompact(
                     onPlayAll = onPlayAll,
                     onShuffle = onShuffle,
                     onDownloadAll = { downloadViewModel.downloadAll(songs) },
-                    isDownloadingAny = isAnyDownloading
+                    isDownloadingAny = isAnyDownloading,
+                    isFullyDownloaded = isFullyDownloaded
                 )
 
                 Spacer(Modifier.height(24.dp))
@@ -221,8 +226,7 @@ internal fun PlaylistCompact(
                             playlistPage.playlist.id,
                             playlistPage.playlist.title
                         )
-                    },
-                    downloadState = downloadStates[song.id],
+                    }
                 )
                 if (index < songs.lastIndex) {
                     HorizontalDivider(
@@ -264,6 +268,7 @@ internal fun PlaylistInfoPanel(
     onShuffle: () -> Unit = {},
     onDownloadAll: () -> Unit = {},
     isDownloadingAny: Boolean = false,
+    isFullyDownloaded: Boolean = false,
 ) {
     playlistPage.playlist.author?.let { author ->
         Surface(
@@ -435,9 +440,9 @@ internal fun PlaylistInfoPanel(
                 )
             } else {
                 Icon(
-                    Icons.Default.Download,
+                    if (isFullyDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
                     null,
-                    tint = onSurfaceColor,
+                    tint = if (isFullyDownloaded) MaterialTheme.colorScheme.primary else onSurfaceColor,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -451,11 +456,11 @@ internal fun PlaylistSongItem(
     index: Int,
     song: SongItem,
     onNavigate: (Route) -> Unit,
-    onClick: () -> Unit = {},
-    downloadState: DownloadState? = null,
+    onClick: () -> Unit = {}
 ) {
     val playerViewModel = LocalPlayerViewModel.current
     val downloadViewModel = LocalDownloadViewModel.current
+    val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
 
     var isHovered by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }

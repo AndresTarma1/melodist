@@ -2,6 +2,7 @@ package com.example.melodist.ui.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.DpOffset
 import com.example.melodist.player.DownloadState
 import com.metrolist.innertube.models.SongItem
 
@@ -29,6 +30,7 @@ fun SongContextMenu(
     onAddToQueue: (() -> Unit)? = null,
     onPlayNext: (() -> Unit)? = null,
     onRemoveFromLibrary: (() -> Unit)? = null,
+    offset: DpOffset = DpOffset.Zero
 ) {
     SongContextMenuContent(
         expanded = expanded,
@@ -41,5 +43,6 @@ fun SongContextMenu(
         onAddToQueue = onAddToQueue,
         onPlayNext = onPlayNext,
         onRemoveFromLibrary = onRemoveFromLibrary,
+        offset = offset
     )
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.Explicit
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
@@ -41,6 +42,7 @@ import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.SongContextMenu
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
+import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.AlbumPage
 
@@ -121,8 +123,6 @@ internal fun AlbumScreenCompact(
 ) {
     val playerViewModel = LocalPlayerViewModel.current
     val lazyListState = rememberLazyListState()
-    val downloadViewModel = LocalDownloadViewModel.current
-    val downloadStates by downloadViewModel.downloadStates.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -159,7 +159,6 @@ internal fun AlbumScreenCompact(
                 NewSongListItem(
                     index = index + 1,
                     song = song,
-                    downloadState = downloadStates[song.id],
                     onPlay = {
                         playerViewModel.playAlbum(songs, index, albumPage.album.browseId, albumPage.album.title)
                     }
@@ -205,14 +204,15 @@ internal fun AlbumInfoPanel(
     onShuffle: () -> Unit = {},
 ) {
     val downloadViewModel = LocalDownloadViewModel.current
-    val downloadStates by downloadViewModel.downloadStates.collectAsState()
 
-    val isDownloading = remember(songs, downloadStates) {
-        songs.any { song ->
-            val state = downloadStates[song.id]
-            state is DownloadState.Queued || state is DownloadState.Downloading
-        }
-    }
+    val songIds = remember(songs) { songs.map { it.id } }
+    val isDownloading by remember(songIds, downloadViewModel) {
+        downloadViewModel.isAnyDownloadingFlow(songIds)
+    }.collectAsState(initial = false)
+
+    val isFullyDownloaded by remember(songIds, downloadViewModel) {
+        downloadViewModel.isFullyDownloadedFlow(songIds)
+    }.collectAsState(initial = false)
 
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -376,7 +376,12 @@ internal fun AlbumInfoPanel(
                     color = MaterialTheme.colorScheme.primary
                 )
             } else {
-                Icon(Icons.Default.Download, null, tint = onSurfaceColor, modifier = Modifier.size(20.dp))
+                Icon(
+                    if (isFullyDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
+                    null,
+                    tint = if (isFullyDownloaded) MaterialTheme.colorScheme.primary else onSurfaceColor,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
@@ -390,8 +395,6 @@ internal fun AlbumSongsList(
     onSurfaceVariant: Color,
     onSongClick: (index: Int) -> Unit,
 ) {
-    val downloadViewModel = LocalDownloadViewModel.current
-    val downloadStates by downloadViewModel.downloadStates.collectAsState()
     val scrollState = rememberLazyListState()
 
     Box(Modifier.fillMaxSize()) {
@@ -404,7 +407,6 @@ internal fun AlbumSongsList(
                 NewSongListItem(
                     index = index + 1,
                     song = song,
-                    downloadState = downloadStates[song.id],
                     onPlay = { onSongClick(index) }
                 )
                 if (index < songs.lastIndex) {
@@ -437,11 +439,11 @@ internal fun AlbumSongsList(
 fun NewSongListItem(
     index: Int,
     song: SongItem,
-    downloadState: DownloadState?,
     onPlay: () -> Unit
 ) {
     val playerViewModel = LocalPlayerViewModel.current
     val downloadViewModel = LocalDownloadViewModel.current
+    val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
 
     var isHovered by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }

@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -79,10 +80,12 @@ internal fun SongContextMenuContent(
     onAddToQueue: (() -> Unit)? = null,
     onPlayNext: (() -> Unit)? = null,
     onRemoveFromLibrary: (() -> Unit)? = null,
+    offset: DpOffset = DpOffset.Zero
 ) {
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
+        offset = offset,
     ) {
         when (downloadState) {
             is DownloadState.Completed -> DropdownMenuItem(

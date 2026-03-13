@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.melodist.data.repository.MusicRepository
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
+import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.pages.PlaylistPage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -72,6 +73,32 @@ class PlaylistViewModel(
             _uiState.value = PlaylistState.Loading
             _songs.value = emptyList()
             _continuation.value = null
+
+            // Special case: local downloads playlist
+            if (playlistId == "LOCAL_DOWNLOADS") {
+                val downloadedSongs = repository.getDownloadedSongs()
+                _songs.value = downloadedSongs
+                _uiState.value = PlaylistState.Success(
+                    playlistPage = PlaylistPage(
+                        playlist = PlaylistItem(
+                            id = "LOCAL_DOWNLOADS",
+                            title = "Descargas",
+                            author = null,
+                            songCountText = "${downloadedSongs.size} canciones",
+                            thumbnail = downloadedSongs.firstOrNull()?.thumbnail,
+                            playEndpoint = null,
+                            shuffleEndpoint = null,
+                            radioEndpoint = null
+                        ),
+                        songs = downloadedSongs,
+                        songsContinuation = null,
+                        continuation = null
+                    ),
+                    isFromCache = true,
+                    isSaved = true,
+                )
+                return@launch
+            }
 
             // 1. Intentar cargar desde caché local
             val cachedSongs = repository.getCachedPlaylistSongs(playlistId)

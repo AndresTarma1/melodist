@@ -43,6 +43,7 @@ import com.example.melodist.viewmodels.QueueSource
 import com.example.melodist.viewmodels.RepeatMode
 import com.metrolist.innertube.models.SongItem
 import org.koin.compose.koinInject
+import com.example.melodist.ui.helpers.rememberSongDownloadState
 
 @Composable
 fun WideLayout(
@@ -145,8 +146,6 @@ fun WideLayout(
                 Spacer(Modifier.height(8.dp))
 
                 val scrollState = rememberScrollState()
-                val downloadViewModel: DownloadViewModel = koinInject()
-                val downloadStates by downloadViewModel.downloadStates.collectAsState()
 
                 Box(modifier = Modifier.weight(1f)) {
                     Column(
@@ -158,8 +157,7 @@ fun WideLayout(
                                 song = queueSong,
                                 index = index,
                                 isCurrent = index == state.currentIndex,
-                                onClick = { onQueueItemClick(index) },
-                                downloadState = downloadStates[queueSong.id]
+                                onClick = { onQueueItemClick(index) }
                             )
                         }
                         Spacer(Modifier.height(32.dp))
@@ -657,9 +655,11 @@ fun QueueItem(
     song: SongItem,
     index: Int,
     isCurrent: Boolean,
-    onClick: () -> Unit,
-    downloadState: DownloadState? = null
+    onClick: () -> Unit
 ) {
+    val downloadViewModel: DownloadViewModel = koinInject()
+    val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
+
     val bg by animateColorAsState(
         if (isCurrent) Color.White.copy(alpha = 0.16f) else Color.Transparent,
         tween(200),

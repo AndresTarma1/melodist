@@ -49,6 +49,7 @@ import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
+import com.example.melodist.ui.helpers.rememberSongDownloadState
 
 // ────────────────────────────────────────────────────────
 // Route wrapper
@@ -376,7 +377,6 @@ private fun SongsTab(
     }
 
     val downloadViewModel: DownloadViewModel = org.koin.compose.koinInject()
-    val downloadStates by downloadViewModel.downloadStates.collectAsState()
 
     val listState = rememberLazyListState()
     Box(modifier = Modifier.fillMaxSize()) {
@@ -395,7 +395,6 @@ private fun SongsTab(
                     LibrarySongItem(
                         song = song, onRemove = {}, isRemovable = false,
                         onClick = { playerViewModel?.playCustom(ytmSongs, ytmSongs.indexOf(song)) },
-                        downloadState = downloadStates[song.id],
                         onDownload = { downloadViewModel.downloadSong(song) },
                         onRemoveDownload = { downloadViewModel.removeDownload(song.id) },
                         onCancelDownload = { downloadViewModel.cancelDownload(song.id) },
@@ -412,7 +411,6 @@ private fun SongsTab(
                     LibrarySongItem(
                         song = song, onRemove = { onRemove(song.id) },
                         onClick = { playerViewModel?.playCustom(songs, songs.indexOf(song)) },
-                        downloadState = downloadStates[song.id],
                         onDownload = { downloadViewModel.downloadSong(song) },
                         onRemoveDownload = { downloadViewModel.removeDownload(song.id) },
                         onCancelDownload = { downloadViewModel.cancelDownload(song.id) },
@@ -441,13 +439,15 @@ private fun LibrarySongItem(
     onRemove: () -> Unit,
     onClick: () -> Unit = {},
     isRemovable: Boolean = true,
-    downloadState: DownloadState? = null,
     onDownload: () -> Unit = {},
     onRemoveDownload: () -> Unit = {},
     onCancelDownload: () -> Unit = {},
     onAddToQueue: (() -> Unit)? = null,
     onPlayNext: (() -> Unit)? = null
 ) {
+    val downloadViewModel: DownloadViewModel = org.koin.compose.koinInject()
+    val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
+
     var showMenu by remember { mutableStateOf(false) }
     Box {
         ListItem(
@@ -751,121 +751,82 @@ private fun DownloadsTab(
     playerViewModel: PlayerViewModel? = null
 ) {
     val downloadViewModel: DownloadViewModel = org.koin.compose.koinInject()
-    val downloadStates by downloadViewModel.downloadStates.collectAsState()
     val downloadedSongs by downloadViewModel.downloadedSongs.collectAsState()
-    val pendingSongItems by downloadViewModel.pendingSongItems.collectAsState()
-    val cacheSizeText by downloadViewModel.cacheSizeText.collectAsState()
+    val downloadedCount by downloadViewModel.downloadedCount.collectAsState()
     val fullyDownloadedAlbums by downloadViewModel.fullyDownloadedAlbums.collectAsState()
     val fullyDownloadedPlaylists by downloadViewModel.fullyDownloadedPlaylists.collectAsState()
 
-    val inProgressSongs = pendingSongItems.values.toList()
+    val hasContent = downloadedCount > 0 || fullyDownloadedAlbums.isNotEmpty() || fullyDownloadedPlaylists.isNotEmpty()
 
-    if (downloadedSongs.isEmpty() && inProgressSongs.isEmpty()) {
+    if (!hasContent) {
         LibraryEmptyState(
             Icons.Default.DownloadDone,
             "No hay descargas",
-            "Las canciones que descargues aparecerán aquí como una playlist local"
+            "Las canciones que descargues aparecerán aquí"
         )
         return
     }
 
-    var showAllSongs by remember { mutableStateOf(false) }
-
-    val listState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
     Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            state = listState,
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        LazyVerticalGrid(
+            state = gridState,
+            columns = GridCells.Adaptive(minSize = 160.dp),
+            contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 80.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // ── Playlist "Descargas" card ──
+            // ── Playlists section ──
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                LocalSectionHeader("Playlists")
+            }
+
+            // "Descargas" card — navigates to PlaylistScreen with LOCAL_DOWNLOADS
             item {
-                DownloadsPlaylistCard(
-                    songCount = downloadedSongs.size,
-                    cacheSize = cacheSizeText,
-                    isExpanded = showAllSongs,
-                    onToggleExpand = { showAllSongs = !showAllSongs },
-                    onPlayAll = {
-                        if (downloadedSongs.isNotEmpty()) playerViewModel?.playCustom(downloadedSongs, 0)
-                    },
-                    onShuffle = {
-                        if (downloadedSongs.isNotEmpty()) playerViewModel?.playCustom(downloadedSongs.shuffled(), 0)
-                    },
-                    onClearAll = { downloadViewModel.clearCache() }
+                LibraryGridItem(
+                    title = "Descargas",
+                    subtitle = "$downloadedCount canciones",
+                    thumbnailUrl = downloadedSongs.firstOrNull()?.thumbnail,
+                    placeholderType = PlaceholderType.PLAYLIST,
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = { onNavigate(Route.Playlist("LOCAL_DOWNLOADS")) },
+                    isRemovable = false
                 )
             }
 
-            // ── Expanded: all downloaded songs ──
-            if (showAllSongs && downloadedSongs.isNotEmpty()) {
-                items(downloadedSongs, key = { "dl_${it.id}" }) { song ->
-                    LibrarySongItem(
-                        song = song,
-                        onRemove = { downloadViewModel.removeDownload(song.id) },
-                        onClick = { playerViewModel?.playCustom(downloadedSongs, downloadedSongs.indexOf(song)) },
-                        downloadState = DownloadState.Completed,
-                        onDownload = { },
-                        onRemoveDownload = { downloadViewModel.removeDownload(song.id) },
-                        onCancelDownload = { },
-                        onAddToQueue = { playerViewModel?.addToQueue(song) }
-                    )
-                }
-                item { Spacer(Modifier.height(8.dp)) }
+            // Fully downloaded playlists
+            items(fullyDownloadedPlaylists, key = { "dlpl_${it.playlistId}" }) { playlistInfo ->
+                LibraryGridItem(
+                    title = playlistInfo.playlistName,
+                    subtitle = "${playlistInfo.downloadedSongCount} canciones",
+                    thumbnailUrl = playlistInfo.thumbnail,
+                    placeholderType = PlaceholderType.PLAYLIST,
+                    shape = RoundedCornerShape(12.dp),
+                    onClick = { onNavigate(Route.Playlist(playlistInfo.playlistId)) },
+                    isRemovable = false
+                )
             }
 
-            // ── In-progress downloads ──
-            if (inProgressSongs.isNotEmpty()) {
-                item { DownloadsSectionHeader(Icons.Default.Downloading, "Descargando (${inProgressSongs.size})", MaterialTheme.colorScheme.primary) }
-                items(inProgressSongs, key = { "progress_${it.id}" }) { song ->
-                    LibrarySongItem(
-                        song = song,
-                        onRemove = { downloadViewModel.removeDownload(song.id) },
-                        onClick = { },
-                        downloadState = downloadStates[song.id],
-                        onDownload = { },
-                        onRemoveDownload = { downloadViewModel.removeDownload(song.id) },
-                        onCancelDownload = { downloadViewModel.cancelDownload(song.id) },
-                        onAddToQueue = null
-                    )
-                }
-                item { Spacer(Modifier.height(8.dp)) }
-            }
-
-            // ── Fully downloaded albums ──
+            // ── Albums section ──
             if (fullyDownloadedAlbums.isNotEmpty()) {
-                item { DownloadsSectionHeader(Icons.Default.Album, "Álbumes descargados (${fullyDownloadedAlbums.size})", MaterialTheme.colorScheme.onSurfaceVariant) }
-                items(fullyDownloadedAlbums, key = { "album_${it.albumId}" }) { albumInfo ->
-                    DownloadedItemCard(
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    LocalSectionHeader("Álbumes")
+                }
+                items(fullyDownloadedAlbums, key = { "dlal_${it.albumId}" }) { albumInfo ->
+                    LibraryGridItem(
                         title = albumInfo.albumName,
-                        subtitle = "${albumInfo.songs.size} canciones · Completo",
-                        thumbnail = albumInfo.thumbnail,
+                        subtitle = "${albumInfo.songs.size} canciones",
+                        thumbnailUrl = albumInfo.thumbnail,
                         placeholderType = PlaceholderType.ALBUM,
+                        shape = RoundedCornerShape(12.dp),
                         onClick = { onNavigate(Route.Album(albumInfo.albumId)) },
-                        onPlay = { playerViewModel?.playCustom(albumInfo.songs, 0) }
+                        isRemovable = false
                     )
                 }
             }
-
-            // ── Fully downloaded playlists ──
-            if (fullyDownloadedPlaylists.isNotEmpty()) {
-                item { Spacer(Modifier.height(4.dp)) }
-                item { DownloadsSectionHeader(Icons.AutoMirrored.Filled.PlaylistPlay, "Playlists descargadas (${fullyDownloadedPlaylists.size})", MaterialTheme.colorScheme.onSurfaceVariant) }
-                items(fullyDownloadedPlaylists, key = { "playlist_${it.playlistId}" }) { playlistInfo ->
-                    DownloadedItemCard(
-                        title = playlistInfo.playlistName,
-                        subtitle = "${playlistInfo.downloadedSongCount} canciones · Completo",
-                        thumbnail = playlistInfo.thumbnail,
-                        placeholderType = PlaceholderType.PLAYLIST,
-                        onClick = { onNavigate(Route.Playlist(playlistInfo.playlistId)) },
-                        onPlay = null
-                    )
-                }
-            }
-
-            item { Spacer(Modifier.height(80.dp)) }
         }
-
         VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(listState),
+            adapter = rememberScrollbarAdapter(gridState),
             modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp),
             style = LocalScrollbarStyle.current.copy(
                 thickness = 4.dp,
@@ -874,126 +835,6 @@ private fun DownloadsTab(
                 shape = RoundedCornerShape(2.dp)
             )
         )
-    }
-}
-
-/** Section header for downloads tab. */
-@Composable
-private fun DownloadsSectionHeader(icon: ImageVector, title: String, color: Color) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp), tint = color)
-        Text(title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = color)
-    }
-}
-
-/** "Descargas" playlist card — shows all downloaded songs as a local playlist. */
-@Composable
-private fun DownloadsPlaylistCard(
-    songCount: Int,
-    cacheSize: String,
-    isExpanded: Boolean,
-    onToggleExpand: () -> Unit,
-    onPlayAll: () -> Unit,
-    onShuffle: () -> Unit,
-    onClearAll: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = 1.dp
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Playlist icon badge
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(52.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-                        Icon(
-                            Icons.Default.DownloadDone,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Descargas",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        "$songCount canciones · $cacheSize",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                FilledTonalButton(
-                    onClick = onPlayAll,
-                    modifier = Modifier.weight(1f).pointerHoverIcon(PointerIcon.Hand),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Reproducir")
-                }
-                FilledTonalButton(
-                    onClick = onShuffle,
-                    modifier = Modifier.weight(1f).pointerHoverIcon(PointerIcon.Hand),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Shuffle, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Aleatorio")
-                }
-                OutlinedIconButton(
-                    onClick = onClearAll,
-                    modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand)
-                ) {
-                    Icon(
-                        Icons.Default.DeleteSweep,
-                        contentDescription = "Limpiar descargas",
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // Expand/collapse to view all songs
-            TextButton(
-                onClick = onToggleExpand,
-                modifier = Modifier.align(Alignment.CenterHorizontally).pointerHoverIcon(PointerIcon.Hand)
-            ) {
-                Icon(
-                    if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(if (isExpanded) "Ocultar canciones" else "Ver todas las canciones")
-            }
-        }
     }
 }
 

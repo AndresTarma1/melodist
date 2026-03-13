@@ -35,4 +35,9 @@ ORDER BY PlaylistSongMap.position;
 countByPlaylist:
 SELECT COUNT(*) FROM PlaylistSongMap WHERE playlistId = ?;
 
+countDownloadedByPlaylist:
+SELECT COUNT(*) FROM PlaylistSongMap
+JOIN Song ON PlaylistSongMap.songId = Song.id
+WHERE PlaylistSongMap.playlistId = ? AND Song.isDownloaded = 1;
+
 

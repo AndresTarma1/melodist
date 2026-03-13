@@ -72,9 +72,18 @@ import com.example.melodist.ui.components.HorizontalScrollableRow
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.SongSkeleton
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.DpOffset
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.example.melodist.viewmodels.SearchState
+import androidx.compose.ui.input.pointer.PointerButton
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import com.example.melodist.ui.components.SongContextMenu
+import com.example.melodist.ui.helpers.rememberSongDownloadState
+import com.example.melodist.utils.LocalDownloadViewModel
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
@@ -593,6 +602,7 @@ fun EmptyStateView(icon: ImageVector, message: String) {
     }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
     // 1. Definimos propiedades dinámicas basadas en el tipo
@@ -614,12 +624,27 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
         else -> MaterialTheme.colorScheme.surfaceVariant
     }
 
-    ListItem(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onItemClick(item) }
-            .padding(vertical = 2.dp), // Espaciado sutil entre items
+    var showMenu by remember { mutableStateOf(false) }
+    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
+    var itemHeight by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
+
+    Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
+        ListItem(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .clickable { onItemClick(item) }
+                .onPointerEvent(PointerEventType.Press) {
+                    if (item is SongItem && it.button == PointerButton.Secondary) {
+                        val position = it.changes.first().position
+                        val xDp = with(density) { position.x.toDp() }
+                        val yDp = with(density) { (position.y - itemHeight).toDp() }
+                        menuOffset = DpOffset(xDp, yDp)
+                        showMenu = true
+                    }
+                }
+                .padding(vertical = 2.dp), // Espaciado sutil entre items
         headlineContent = {
             Text(
                 text = item.title,
@@ -673,17 +698,42 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
             )
         },
         trailingContent = {
-            // 4. Opcional: Un botón de "más opciones" común en apps de música
-            IconButton(onClick = { /* Menú de opciones */ }) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "Más opciones",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            if (item is SongItem) {
+                IconButton(onClick = { 
+                    val sizeDp = with(density) { itemHeight.toDp() }
+                    menuOffset = DpOffset(1000.dp, -sizeDp/2)
+                    showMenu = true 
+                }) {
+                    Icon(
+                        imageVector = Icons.Default.MoreVert,
+                        contentDescription = "Más opciones",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent)
     )
+
+    if (item is SongItem) {
+        val downloadViewModel = LocalDownloadViewModel.current
+        val playerViewModel = LocalPlayerViewModel.current
+        val downloadState by rememberSongDownloadState(item.id, downloadViewModel)
+
+        SongContextMenu(
+            expanded = showMenu,
+            onDismiss = { showMenu = false },
+            song = item,
+            downloadState = downloadState,
+            onDownload = { downloadViewModel.downloadSong(item) },
+            onRemoveDownload = { downloadViewModel.removeDownload(item.id) },
+            onCancelDownload = { downloadViewModel.cancelDownload(item.id) },
+            onAddToQueue = { playerViewModel?.addToQueue(item) },
+            onPlayNext = { playerViewModel?.playNext(item) },
+            offset = menuOffset
+        )
+    }
+    }
 }
 
 //@Composable
