@@ -44,6 +44,7 @@ import com.example.melodist.viewmodels.RepeatMode
 import com.metrolist.innertube.models.SongItem
 import org.koin.compose.koinInject
 import com.example.melodist.ui.helpers.rememberSongDownloadState
+import com.example.melodist.utils.LocalDownloadViewModel
 
 @Composable
 fun WideLayout(
@@ -657,7 +658,7 @@ fun QueueItem(
     isCurrent: Boolean,
     onClick: () -> Unit
 ) {
-    val downloadViewModel: DownloadViewModel = koinInject()
+    val downloadViewModel = LocalDownloadViewModel.current
     val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
 
     val bg by animateColorAsState(

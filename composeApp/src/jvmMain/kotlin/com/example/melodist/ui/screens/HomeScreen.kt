@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
@@ -33,7 +34,6 @@ import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.SectionSkeleton
 import com.example.melodist.utils.LocalPlayerViewModel
-import com.example.melodist.utils.isWideThumbnail
 import com.example.melodist.utils.musicItemCardWidth
 import com.example.melodist.utils.thumbnailAspectRatio
 import com.example.melodist.viewmodels.HomeState
@@ -84,7 +84,9 @@ fun HomeScreen(
     onNavigate: (Route) -> Unit,
     playerViewModel: PlayerViewModel? = null
 ) {
+    val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior(rememberTopAppBarState())
     Scaffold(
+        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
@@ -98,7 +100,8 @@ fun HomeScreen(
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
                     scrolledContainerColor = Color.Transparent
-                )
+                ),
+                scrollBehavior = scrollBehavior
             )
         },
     ) { paddingValues ->
@@ -107,12 +110,12 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            when (val state = uiState) {
+            when (uiState) {
                 is HomeState.Loading -> HomeScreenLoading()
                 is HomeState.Success -> {
                     HomeScreenContent(
-                        page = state.page,
-                        isLoadingMore = state.isLoadingMore,
+                        page = uiState.page,
+                        isLoadingMore = uiState.isLoadingMore,
                         selectedParams = currentParams,
                         onChipClick = onChipClick,
                         onLoadMore = onLoadMore,
@@ -121,7 +124,7 @@ fun HomeScreen(
                     )
                 }
                 is HomeState.Error -> HomeScreenError(
-                    message = state.message,
+                    message = uiState.message,
                     onRetry = onRetry
                 )
             }
@@ -270,7 +273,7 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
     val density = LocalDensity.current
 
     var isHovered by remember { mutableStateOf(false) }
-    val color = if (isHovered) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f) else Color.Transparent
+    val color = if (isHovered) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f) else Color.Transparent
 
     Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
         Column(
@@ -352,8 +355,8 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
             onDownload = { downloadViewModel.downloadSong(item) },
             onRemoveDownload = { downloadViewModel.removeDownload(item.id) },
             onCancelDownload = { downloadViewModel.cancelDownload(item.id) },
-            onAddToQueue = { playerViewModel?.addToQueue(item) },
-            onPlayNext = { playerViewModel?.playNext(item) },
+            onAddToQueue = { playerViewModel.addToQueue(item) },
+            onPlayNext = { playerViewModel.playNext(item) },
             offset = menuOffset
         )
     }

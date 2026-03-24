@@ -117,7 +117,7 @@ internal fun SongContextMenuContent(
             DropdownMenuItem(
                 text = { Text("Agregar al final de la cola") },
                 onClick = { addToQueue(); onDismiss() },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, tint = MaterialTheme.colorScheme.onSurface) }
+                leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, tint = MaterialTheme.colorScheme.primary) }
             )
         }
 

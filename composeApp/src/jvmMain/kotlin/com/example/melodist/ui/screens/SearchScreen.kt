@@ -137,7 +137,7 @@ fun SearchScreen(
     onClearHistory: () -> Unit,
     playerViewModel: PlayerViewModel? = null
 ) {
-    var active by remember { mutableStateOf<Boolean>(false) }
+    var active by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = Color.Transparent
@@ -168,15 +168,7 @@ fun SearchScreen(
                     when (item) {
 
                         is SongItem -> {
-                            val song = SongItem(
-                                id = item.id,
-                                title = item.title,
-                                artists = item.artists,
-                                album = item.album,
-                                thumbnail = item.thumbnail,
-                                duration = item.duration,
-                            )
-                            playerViewModel?.playSingle(song)
+                            playerViewModel?.playSingle(item)
                         }
                         else -> {
                             val route = when (item) {
