@@ -142,8 +142,6 @@ class PlayerViewModel(
 
     fun playSingle(song: SongItem) {
         val source = QueueSource.Single(song.id)
-
-        print(song)
         _uiState.update {
             it.copy(
                 currentSong = song,
