@@ -26,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -433,6 +434,7 @@ private fun SongsTab(
     }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun LibrarySongItem(
     song: SongItem,
@@ -448,13 +450,17 @@ private fun LibrarySongItem(
     val downloadViewModel: DownloadViewModel = org.koin.compose.koinInject()
     val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
 
+    var isHovered by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     Box {
         ListItem(
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
+                .background(if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent)
                 .clickable { onClick() }
-                .pointerHoverIcon(PointerIcon.Hand),
+                .pointerHoverIcon(PointerIcon.Hand)
+                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Enter) { isHovered = true }
+                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Exit) { isHovered = false },
             headlineContent = {
                 Text(song.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
@@ -912,6 +918,7 @@ private fun DownloadedItemCard(
 // Shared grid item
 // ────────────────────────────────────────────────────────
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun LibraryGridItem(
     title: String,
@@ -926,6 +933,7 @@ private fun LibraryGridItem(
     val isCircle = shape == CircleShape
     val alignment = if (isCircle) Alignment.CenterHorizontally else Alignment.Start
     val textAlign = if (isCircle) TextAlign.Center else TextAlign.Start
+    var isHovered by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
 
     Box {
@@ -933,8 +941,11 @@ private fun LibraryGridItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
+                .background(if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent)
                 .clickable(onClick = onClick)
                 .pointerHoverIcon(PointerIcon.Hand)
+                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Enter) { isHovered = true }
+                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Exit) { isHovered = false }
                 .padding(8.dp),
             horizontalAlignment = alignment
         ) {

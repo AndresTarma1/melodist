@@ -61,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,9 +79,6 @@ import androidx.compose.ui.unit.DpOffset
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.example.melodist.viewmodels.SearchState
-import androidx.compose.ui.input.pointer.PointerButton
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
 import com.example.melodist.ui.components.SongContextMenu
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
@@ -639,12 +637,18 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
     var itemHeight by remember { mutableStateOf(0) }
     val density = LocalDensity.current
 
+    var isHovered by remember { mutableStateOf(false) }
+
     Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
         ListItem(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
+                .background(if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent)
                 .clickable { onItemClick(item) }
+                .pointerHoverIcon(PointerIcon.Hand)
+                .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+                .onPointerEvent(PointerEventType.Exit) { isHovered = false }
                 .onPointerEvent(PointerEventType.Press) {
                     if (item is SongItem && it.button == PointerButton.Secondary) {
                         val position = it.changes.first().position
@@ -655,7 +659,7 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
                     }
                 }
                 .padding(vertical = 2.dp), // Espaciado sutil entre items
-        headlineContent = {
+            headlineContent = {
             Text(
                 text = item.title,
                 maxLines = 1,

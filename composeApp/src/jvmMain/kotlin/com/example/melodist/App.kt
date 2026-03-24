@@ -9,21 +9,16 @@ import androidx.compose.ui.window.WindowState
 import coil3.compose.setSingletonImageLoaderFactory
 import com.example.melodist.navigation.NavigationDesktop
 import com.example.melodist.navigation.RootComponent
-import com.example.melodist.ui.components.ArtworkColors
 import com.example.melodist.ui.components.CoilSetup
-import com.example.melodist.ui.components.CustomTitleBar
 import com.example.melodist.ui.components.LocalArtworkColors
-import com.example.melodist.ui.components.WindowResizeBorder
 import com.example.melodist.ui.components.rememberArtworkColors
 import com.example.melodist.ui.themes.MelodistTheme
 import com.example.melodist.viewmodels.PlayerViewModel
 import org.koin.compose.koinInject
 
 @Composable
-fun FrameWindowScope.App(
+fun App(
     rootComponent: RootComponent,
-    windowState: WindowState,
-    onClose: () -> Unit,
 ) {
     setSingletonImageLoaderFactory { context ->
         CoilSetup.createImageLoader(context)
@@ -36,19 +31,9 @@ fun FrameWindowScope.App(
 
     // Provide artwork colors globally so NowPlayingPanel doesn't re-extract them
     CompositionLocalProvider(LocalArtworkColors provides artworkColors) {
-        MelodistTheme(artworkColors = artworkColors) {
-
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Custom title bar (reemplaza la barra nativa de Windows)
-                CustomTitleBar(
-                    title = playerState.currentSong?.let { "Melodist — ${it.title}" } ?: "Melodist",
-                    windowState = windowState,
-                    onClose = onClose,
-                )
-
-                // Contenido principal
-                NavigationDesktop(rootComponent)
-            }
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Contenido principal
+            NavigationDesktop(rootComponent)
         }
     }
 }

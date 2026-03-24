@@ -465,7 +465,7 @@ internal fun PlaylistSongItem(
     var isHovered by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
 
-    val color = if (isHovered) MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f) else Color.Transparent
+    val color = if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent
 
     Box {
         Surface(

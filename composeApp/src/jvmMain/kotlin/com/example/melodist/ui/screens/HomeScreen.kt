@@ -269,13 +269,19 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
     var itemHeight by remember { mutableStateOf(0) }
     val density = LocalDensity.current
 
+    var isHovered by remember { mutableStateOf(false) }
+    val color = if (isHovered) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f) else Color.Transparent
+
     Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
         Column(
             modifier = Modifier
                 .width(cardWidth)
                 .clip(RoundedCornerShape(12.dp))
+                .background(color)
                 .clickable { onClick(item) }
                 .pointerHoverIcon(PointerIcon.Hand)
+                .onPointerEvent(PointerEventType.Enter) { isHovered = true }
+                .onPointerEvent(PointerEventType.Exit) { isHovered = false }
                 .onPointerEvent(PointerEventType.Press) {
                     if (item is SongItem && it.button == PointerButton.Secondary) {
                         val position = it.changes.first().position

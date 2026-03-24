@@ -10,6 +10,7 @@ pluginManagement {
                 includeGroupAndSubgroups("com.google")
             }
         }
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
         mavenCentral()
         gradlePluginPortal()
 
@@ -26,7 +27,10 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
-        maven("https://jitpack.io")
+        maven { setUrl("https://jitpack.io") }
+        maven("https://www.jetbrains.com/intellij-repository/releases")
+        maven("https://www.jetbrains.com/intellij-repository/snapshots")
+        maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
     }
 }
 

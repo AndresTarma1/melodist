@@ -58,6 +58,12 @@ kotlin {
 
                 // Source: https://mvnrepository.com/artifact/net.java.dev.jna/jna-platform-jpms
                 implementation("net.java.dev.jna:jna-platform-jpms:5.18.1")
+
+                implementation("org.jetbrains.jewel:jewel-int-ui-standalone:0.34.0-253.31033.149")
+//
+//                // Optional, for custom decorated windows:
+                implementation("org.jetbrains.jewel:jewel-int-ui-decorated-window:0.34.0-253.31033.149")
+
             }
         }
     }

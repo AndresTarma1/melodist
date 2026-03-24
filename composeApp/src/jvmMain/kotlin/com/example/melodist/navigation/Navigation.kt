@@ -53,20 +53,15 @@ fun NavigationDesktop(rootComponent: RootComponent) {
     val childStack by rootComponent.childStack.subscribeAsState()
     val activeConfig = childStack.active.configuration
 
-    val playerViewModel: PlayerViewModel = koinInject()
-    val downloadViewModel: DownloadViewModel = koinInject()
+    val playerViewModel: PlayerViewModel = LocalPlayerViewModel.current
 
     val playerState by playerViewModel.uiState.collectAsState()
     val progressState by playerViewModel.progressState.collectAsState()
     var isNowPlayingExpanded by remember { mutableStateOf(false) }
 
-    CompositionLocalProvider(
-        LocalPlayerViewModel provides playerViewModel,
-        LocalDownloadViewModel provides downloadViewModel
-    ) {
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.surface
+            color = MaterialTheme.colorScheme.surface,
         ) {
             Row(modifier = Modifier.fillMaxSize()) {
 
@@ -189,7 +184,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                     }
                 }
             }
-        }
+
     }
 }
 
