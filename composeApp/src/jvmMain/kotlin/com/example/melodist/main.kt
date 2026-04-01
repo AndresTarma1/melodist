@@ -17,7 +17,8 @@ import org.koin.core.context.stopKoin
 
 fun main() {
 
-    System.setProperty("skiko.renderApi", "OPENGL")
+    // Es mejor el Direct3D que el OpenGL, pero en algunos casos puede causar problemas de renderizado, así que se puede forzar el uso de OpenGL si es necesario.
+    //System.setProperty("skiko.renderApi", "OPENGL")
 
     setupEnvironments()
 

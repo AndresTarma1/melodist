@@ -7,20 +7,12 @@ import com.example.melodist.viewmodels.PlayerUiState
 
 @Composable
 fun MiniPlayer(
-    state: PlayerUiState,
     progressState: PlayerProgressState,
-    onTogglePlayPause: () -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit,
     onClickExpand: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     MiniPlayerContent(
-        state = state,
         progressState = progressState,
-        onTogglePlayPause = onTogglePlayPause,
-        onNext = onNext,
-        onPrevious = onPrevious,
         onClickExpand = onClickExpand,
         modifier = modifier
     )

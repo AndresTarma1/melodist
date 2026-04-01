@@ -191,6 +191,34 @@ class DatabaseDao(private val database: MelodistDatabase) {
         )
     }
 
+    suspend fun updateSong(song: SongEntity) = withContext(Dispatchers.IO){
+        database.songQueries.updateSong(
+            id = song.id, title = song.title, duration = song.duration.toLong(),
+            thumbnailUrl = song.thumbnailUrl, albumId = song.albumId, albumName = song.albumName,
+            explicit = if (song.explicit) 1L else 0L, year = song.year?.toLong(),
+            date = song.date.toEpochMillis(), dateModified = song.dateModified.toEpochMillis(),
+            liked = if (song.liked) 1L else 0L, likedDate = song.likedDate.toEpochMillis(),
+            totalPlayTime = song.totalPlayTime, inLibrary = song.inLibrary.toEpochMillis(),
+            dateDownload = song.dateDownload.toEpochMillis(),
+            isLocal = if (song.isLocal) 1L else 0L,
+            libraryAddToken = song.libraryAddToken, libraryRemoveToken = song.libraryRemoveToken,
+            lyricsOffset = song.lyricsOffset.toLong(),
+            romanizeLyrics = if (song.romanizeLyrics) 1L else 0L,
+            isAgeRestricted = if (song.isAgeRestricted) 1L else 0L,
+            isDownloaded = if (song.isDownloaded) 1L else 0L,
+            isUploaded = if (song.isUploaded) 1L else 0L,
+            isVideo = if (song.isVideo) 1L else 0L
+        )
+    }
+
+    suspend fun updateSongMetadata(song: SongEntity) = withContext(Dispatchers.IO){
+        database.songQueries.updateSongMetadata(
+            id = song.id, title = song.title,
+            duration = song.duration.toLong(),
+            thumbnailUrl = song.thumbnailUrl,
+        )
+    }
+
     suspend fun deleteSong(id: String) = withContext(Dispatchers.IO) {
         database.songQueries.deleteSong(id)
     }

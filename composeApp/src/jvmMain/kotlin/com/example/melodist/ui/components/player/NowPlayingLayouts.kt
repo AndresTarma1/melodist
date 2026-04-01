@@ -43,6 +43,7 @@ import com.example.melodist.viewmodels.RepeatMode
 import com.metrolist.innertube.models.SongItem
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
+import com.example.melodist.utils.LocalPlayerViewModel
 
 @Composable
 fun WideLayout(
@@ -61,6 +62,10 @@ fun WideLayout(
     artworkColors: ArtworkColors = ArtworkColors.Default,
     onNavigate: ((Route) -> Unit)? = null,
 ) {
+
+
+    val playerViewModel = LocalPlayerViewModel.current
+
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val h = maxHeight
         val isShort = h < 600.dp
@@ -177,83 +182,7 @@ fun WideLayout(
     }
 }
 
-@Composable
-fun CompactLayout(
-    state: PlayerUiState,
-    progressState: PlayerProgressState,
-    song: SongItem,
-    onTogglePlayPause: () -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit,
-    onSeek: (Long) -> Unit,
-    onVolumeChange: (Int) -> Unit,
-    onToggleShuffle: () -> Unit,
-    onToggleRepeat: () -> Unit,
-    onCollapse: () -> Unit,
-    artworkColors: ArtworkColors = ArtworkColors.Default,
-    onNavigate: ((Route) -> Unit)? = null,
-) {
-    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val w = maxWidth
-        val h = maxHeight
-        val isVeryNarrow = w < 280.dp
-        val isNarrow = w < 360.dp
-        val isVeryShort = h < 420.dp
-        val isShort = h < 560.dp
-        val hPad = when {
-            isVeryNarrow -> 12.dp; isNarrow -> 16.dp; else -> 24.dp
-        }
-        val maxCoverW = when {
-            isVeryNarrow -> 180; isNarrow -> 240; else -> 340
-        }
-        val maxCoverH = when {
-            isVeryShort -> 140; isShort -> 200; h < 700.dp -> 280; else -> 380
-        }
-        val coverSize = minOf(maxCoverW, maxCoverH)
-        val spacerLg = when {
-            isVeryShort -> 6.dp; isShort -> 10.dp; else -> 10.dp
-        }
-        val spacerMd = when {
-            isVeryShort -> 4.dp; isShort -> 8.dp; else -> 14.dp
-        }
-        val spacerSm = when {
-            isVeryShort -> 2.dp; isShort -> 4.dp; else -> 8.dp
-        }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = hPad, vertical = if (isVeryShort) 8.dp else 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Row(modifier = Modifier.fillMaxWidth()) { CollapseButton(onCollapse) }
-            Spacer(Modifier.height(spacerMd))
-            CoverArt(
-                url = song.thumbnail,
-                title = song.title,
-                size = coverSize,
-                glowColor = artworkColors.vibrant
-            )
-            Spacer(Modifier.height(spacerLg))
-            SongHeader(state, song, TextAlign.Center, onNavigate, onCollapse)
-            Spacer(Modifier.height(spacerLg))
-            ProgressBar(progressState, onSeek)
-            Spacer(Modifier.height(spacerSm))
-            TransportControls(
-                state,
-                onTogglePlayPause,
-                onNext,
-                onPrevious,
-                onToggleShuffle,
-                onToggleRepeat
-            )
-            Spacer(Modifier.height(spacerMd))
-            VolumeRow(state, onVolumeChange)
-            Spacer(Modifier.height(spacerLg))
-        }
-    }
-}
 
 @Composable
 fun CollapseButton(onClick: () -> Unit) {

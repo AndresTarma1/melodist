@@ -47,6 +47,7 @@ import com.example.melodist.ui.components.SongContextMenu
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.ui.helpers.rememberSongDownloadState
+import com.example.melodist.ui.helpers.contextMenuArea
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.AlbumPage
 
@@ -446,19 +447,16 @@ fun NewSongListItem(
     song: SongItem,
     onPlay: () -> Unit
 ) {
-    val playerViewModel = LocalPlayerViewModel.current
     val downloadViewModel = LocalDownloadViewModel.current
     val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
 
     var isHovered by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
-    var itemHeight by remember { mutableStateOf(0) }
-    val density = LocalDensity.current
 
     val color = if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent
 
-    Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
+    Box {
         Surface(
             color = color,
             modifier = Modifier
@@ -466,17 +464,14 @@ fun NewSongListItem(
                 .clip(RoundedCornerShape(8.dp))
                 .clickable { onPlay() }
                 .pointerHoverIcon(PointerIcon.Hand)
-                .onPointerEvent(PointerEventType.Enter) { isHovered = true }
-                .onPointerEvent(PointerEventType.Exit) { isHovered = false }
-                .onPointerEvent(PointerEventType.Press) {
-                    if (it.button == PointerButton.Secondary) {
-                        val position = it.changes.first().position
-                        val xDp = with(density) { position.x.toDp() }
-                        val yDp = with(density) { (position.y - itemHeight).toDp() }
-                        menuOffset = DpOffset(xDp, yDp)
+                .contextMenuArea(
+                    enabled = true,
+                    onHoverChange = { isHovered = it },
+                    onMenuAction = { offset ->
+                        menuOffset = offset
                         showContextMenu = true
                     }
-                }
+                )
         ) {
             Row(
                 modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
@@ -539,12 +534,7 @@ fun NewSongListItem(
             expanded = showContextMenu,
             onDismiss = { showContextMenu = false },
             song = song,
-            downloadState = downloadState,
-            onDownload = { downloadViewModel.downloadSong(song) },
-            onRemoveDownload = { downloadViewModel.removeDownload(song.id) },
-            onCancelDownload = { downloadViewModel.cancelDownload(song.id) },
-            onAddToQueue = { playerViewModel.addToQueue(song) },
-            onPlayNext = { playerViewModel.playNext(song) }
+            offset = menuOffset
         )
     }
 }

@@ -55,6 +55,7 @@ import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
 import com.example.melodist.ui.helpers.rememberSongDownloadState
+import com.example.melodist.ui.helpers.contextMenuArea
 
 // ────────────────────────────────────────────────────────
 // Route wrapper
@@ -381,8 +382,6 @@ private fun SongsTab(
         return
     }
 
-    val downloadViewModel: DownloadViewModel = org.koin.compose.koinInject()
-
     val listState = rememberLazyListState()
     Box(modifier = Modifier.fillMaxSize()) {
         LazyColumn(
@@ -400,11 +399,6 @@ private fun SongsTab(
                     LibrarySongItem(
                         song = song, onRemove = {}, isRemovable = false,
                         onClick = { playerViewModel?.playCustom(ytmSongs, ytmSongs.indexOf(song)) },
-                        onDownload = { downloadViewModel.downloadSong(song) },
-                        onRemoveDownload = { downloadViewModel.removeDownload(song.id) },
-                        onCancelDownload = { downloadViewModel.cancelDownload(song.id) },
-                        onAddToQueue = { playerViewModel?.addToQueue(song) },
-                        onPlayNext = { playerViewModel?.playNext(song) }
                     )
                 }
                 if (songs.isNotEmpty()) item { Spacer(Modifier.height(8.dp)) }
@@ -415,12 +409,7 @@ private fun SongsTab(
                 items(songs, key = { it.id }) { song ->
                     LibrarySongItem(
                         song = song, onRemove = { onRemove(song.id) },
-                        onClick = { playerViewModel?.playCustom(songs, songs.indexOf(song)) },
-                        onDownload = { downloadViewModel.downloadSong(song) },
-                        onRemoveDownload = { downloadViewModel.removeDownload(song.id) },
-                        onCancelDownload = { downloadViewModel.cancelDownload(song.id) },
-                        onAddToQueue = { playerViewModel?.addToQueue(song) },
-                        onPlayNext = { playerViewModel?.playNext(song) }
+                        onClick = { playerViewModel?.playCustom(songs, songs.indexOf(song)) }
                     )
                 }
             }
@@ -445,11 +434,6 @@ private fun LibrarySongItem(
     onRemove: () -> Unit,
     onClick: () -> Unit = {},
     isRemovable: Boolean = true,
-    onDownload: () -> Unit = {},
-    onRemoveDownload: () -> Unit = {},
-    onCancelDownload: () -> Unit = {},
-    onAddToQueue: (() -> Unit)? = null,
-    onPlayNext: (() -> Unit)? = null
 ) {
     val downloadViewModel: DownloadViewModel = org.koin.compose.koinInject()
     val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
@@ -457,27 +441,22 @@ private fun LibrarySongItem(
     var isHovered by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
-    var itemHeight by remember { mutableStateOf(0) }
-    val density = LocalDensity.current
 
-    Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
+    Box {
         ListItem(
             modifier = Modifier
                 .clip(RoundedCornerShape(12.dp))
                 .background(if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent)
                 .clickable { onClick() }
                 .pointerHoverIcon(PointerIcon.Hand)
-                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Enter) { isHovered = true }
-                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Exit) { isHovered = false }
-                .onPointerEvent(androidx.compose.ui.input.pointer.PointerEventType.Press) {
-                    if (it.button == androidx.compose.ui.input.pointer.PointerButton.Secondary) {
-                        val position = it.changes.first().position
-                        val xDp = with(density) { position.x.toDp() }
-                        val yDp = with(density) { (position.y - itemHeight).toDp() }
-                        menuOffset = DpOffset(xDp, yDp)
+                .contextMenuArea(
+                    enabled = true,
+                    onHoverChange = { isHovered = it },
+                    onMenuAction = { offset ->
+                        menuOffset = offset
                         showMenu = true
                     }
-                },
+                ),
             headlineContent = {
                 Text(song.title, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
@@ -520,12 +499,6 @@ private fun LibrarySongItem(
             expanded = showMenu,
             onDismiss = { showMenu = false },
             song = song,
-            downloadState = downloadState,
-            onDownload = onDownload,
-            onRemoveDownload = onRemoveDownload,
-            onCancelDownload = onCancelDownload,
-            onAddToQueue = onAddToQueue,
-            onPlayNext = onPlayNext,
             onRemoveFromLibrary = if (isRemovable) onRemove else null
         )
     }

@@ -8,7 +8,6 @@ import com.example.melodist.player.AudioStreamResolver
 import com.example.melodist.player.DownloadService
 import com.example.melodist.player.PlaybackState
 import com.example.melodist.player.PlayerService
-import com.example.melodist.player.StreamQuality
 import com.example.melodist.player.WindowsMediaSession
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem

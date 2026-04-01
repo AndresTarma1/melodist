@@ -131,7 +131,7 @@ object YTPlayerutils {
 
         if (streamPlayerResponse.playabilityStatus.status != "OK") {
             val errorReason = streamPlayerResponse.playabilityStatus.reason
-            throw Error("Error, care nalga")
+            throw Error("$errorReason")
         }
 
         if (streamExpiresInSeconds == null) {
@@ -172,15 +172,12 @@ object YTPlayerutils {
             ?.filter { it.isAudio && it.isOriginal }
             ?.maxByOrNull {
                 it.bitrate * when (audioQuality) {
-                    AudioQuality.AUTO -> if (true) -1 else 1
+                    AudioQuality.AUTO -> -1
                     AudioQuality.HIGH -> 1
                     AudioQuality.LOW -> -1
                 } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
             }
 
-        if (format != null) {
-        } else {
-        }
 
         return format
     }
@@ -200,9 +197,6 @@ object YTPlayerutils {
     }
     private fun getSignatureTimestampOrNull(videoId: String): Int? {
         return NewPipeExtractor.getSignatureTimestamp(videoId)
-            .onSuccess {  }
-            .onFailure {
-            }
             .getOrNull()
     }
 

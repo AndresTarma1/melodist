@@ -76,7 +76,7 @@ INSERT OR IGNORE INTO Song (id, title, duration, thumbnailUrl, albumId, albumNam
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateSong:
-UPDATE Song SET title = ?, duration = ?, thumbnailUrl = ?, albumId = ?, albumName = ?, explicit = ?, year = ?, liked = ?, likedDate = ?, totalPlayTime = ?, inLibrary = ?, isDownloaded = ?, isUploaded = ?, isVideo = ?
+UPDATE Song SET title = ?, duration = ?, thumbnailUrl = ?, albumId = ?, albumName = ?, explicit = ?, year = ?, date = ? , dateModified = ?, liked = ?, likedDate = ?, totalPlayTime = ?, inLibrary = ?,dateDownload = ?, isLocal = ?, libraryAddToken = ?, libraryRemoveToken =?, lyricsOffset = ?, romanizeLyrics = ? , isAgeRestricted = ? ,isDownloaded = ?, isUploaded = ?, isVideo = ?
 WHERE id = ?;
 
 updateSongLike:

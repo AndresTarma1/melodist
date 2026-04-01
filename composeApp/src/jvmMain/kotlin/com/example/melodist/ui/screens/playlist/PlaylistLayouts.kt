@@ -47,6 +47,7 @@ import com.example.melodist.ui.components.SongContextMenu
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.ui.helpers.rememberSongDownloadState
+import com.example.melodist.ui.helpers.contextMenuArea
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.PlaylistPage
 
@@ -55,16 +56,10 @@ internal fun PlaylistWide(
     playlistPage: PlaylistPage,
     songs: List<SongItem>,
     hasMore: Boolean,
-    onLoadMore: () -> Unit,
-    onSurfaceColor: Color,
-    onSurfaceVariant: Color,
-    onNavigate: (Route) -> Unit,
     isSaved: Boolean,
     isSaving: Boolean = false,
     isLoadingForPlay: Boolean = false,
-    onToggleSave: () -> Unit,
-    onPlayAll: () -> Unit = {},
-    onShuffle: () -> Unit = {},
+    actions: PlaylistActions
 ) {
     val playerViewModel = LocalPlayerViewModel.current
     val downloadViewModel = LocalDownloadViewModel.current
@@ -93,15 +88,11 @@ internal fun PlaylistWide(
         ) {
             PlaylistInfoPanel(
                 playlistPage = playlistPage,
-                onSurfaceColor = onSurfaceColor,
-                onSurfaceVariant = onSurfaceVariant,
                 coverSize = 240.dp,
                 isSaved = isSaved,
                 isSaving = isSaving,
                 isLoadingForPlay = isLoadingForPlay,
-                onToggleSave = onToggleSave,
-                onPlayAll = onPlayAll,
-                onShuffle = onShuffle,
+                actions = actions,
                 onDownloadAll = { downloadViewModel.downloadAll(songs) },
                 isDownloadingAny = isAnyDownloading,
                 isFullyDownloaded = isFullyDownloaded
@@ -121,7 +112,7 @@ internal fun PlaylistWide(
                     PlaylistSongItem(
                         index = index + 1,
                         song = song,
-                        onNavigate = onNavigate,
+                        onNavigate = actions.onNavigate,
                         onClick = {
                             playerViewModel.playPlaylist(
                                 songs, index,
@@ -137,7 +128,7 @@ internal fun PlaylistWide(
                         )
                     }
                 }
-                if (hasMore) item { LoadingMoreSongsItem(onLoadMore = onLoadMore) }
+                if (hasMore) item { LoadingMoreSongsItem(onLoadMore = actions.onLoadMore) }
                 item { Spacer(modifier = Modifier.height(80.dp)) }
             }
 
@@ -147,8 +138,6 @@ internal fun PlaylistWide(
                     .padding(vertical = 12.dp),
                 style = LocalScrollbarStyle.current.copy(
                     thickness = 4.dp,
-                    unhoverColor = onSurfaceVariant.copy(alpha = 0.08f),
-                    hoverColor = onSurfaceVariant.copy(alpha = 0.25f),
                     shape = RoundedCornerShape(2.dp)
                 )
             )
@@ -157,119 +146,13 @@ internal fun PlaylistWide(
 }
 
 @Composable
-internal fun PlaylistCompact(
-    playlistPage: PlaylistPage,
-    songs: List<SongItem>,
-    hasMore: Boolean,
-    onLoadMore: () -> Unit,
-    onSurfaceColor: Color,
-    onSurfaceVariant: Color,
-    onNavigate: (Route) -> Unit,
-    isSaved: Boolean,
-    isSaving: Boolean = false,
-    isLoadingForPlay: Boolean = false,
-    onToggleSave: () -> Unit,
-    onPlayAll: () -> Unit = {},
-    onShuffle: () -> Unit = {},
-) {
-    val playerViewModel = LocalPlayerViewModel.current
-    val downloadViewModel = LocalDownloadViewModel.current
-
-    val songIds = remember(songs) { songs.map { it.id } }
-    val isAnyDownloading by remember(songIds, downloadViewModel) {
-        downloadViewModel.isAnyDownloadingFlow(songIds)
-    }.collectAsState(initial = false)
-
-    val isFullyDownloaded by remember(songIds, downloadViewModel) {
-        downloadViewModel.isFullyDownloadedFlow(songIds)
-    }.collectAsState(initial = false)
-
-    val lazyListState = rememberLazyListState()
-
-    Box(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(
-            state = lazyListState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            item {
-                PlaylistInfoPanel(
-                    playlistPage = playlistPage,
-                    onSurfaceColor = onSurfaceColor,
-                    onSurfaceVariant = onSurfaceVariant,
-                    coverSize = 200.dp,
-                    isSaved = isSaved,
-                    isSaving = isSaving,
-                    isLoadingForPlay = isLoadingForPlay,
-                    onToggleSave = onToggleSave,
-                    onPlayAll = onPlayAll,
-                    onShuffle = onShuffle,
-                    onDownloadAll = { downloadViewModel.downloadAll(songs) },
-                    isDownloadingAny = isAnyDownloading,
-                    isFullyDownloaded = isFullyDownloaded
-                )
-
-                Spacer(Modifier.height(24.dp))
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f),
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-                Spacer(Modifier.height(8.dp))
-            }
-
-            itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
-                PlaylistSongItem(
-                    index = index + 1,
-                    song = song,
-                    onNavigate = onNavigate,
-                    onClick = {
-                        playerViewModel.playPlaylist(
-                            songs, index,
-                            playlistPage.playlist.id,
-                            playlistPage.playlist.title
-                        )
-                    }
-                )
-                if (index < songs.lastIndex) {
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.15f),
-                        modifier = Modifier.padding(start = 48.dp)
-                    )
-                }
-            }
-
-            if (hasMore) item { LoadingMoreSongsItem(onLoadMore = onLoadMore) }
-            item { Spacer(modifier = Modifier.height(80.dp)) }
-        }
-
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(lazyListState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight()
-                .padding(vertical = 12.dp),
-            style = LocalScrollbarStyle.current.copy(
-                thickness = 4.dp,
-                unhoverColor = onSurfaceVariant.copy(alpha = 0.08f),
-                hoverColor = onSurfaceVariant.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(2.dp)
-            )
-        )
-    }
-}
-
-@Composable
 internal fun PlaylistInfoPanel(
     playlistPage: PlaylistPage,
-    onSurfaceColor: Color,
-    onSurfaceVariant: Color,
     coverSize: Dp,
     isSaved: Boolean,
     isSaving: Boolean = false,
     isLoadingForPlay: Boolean = false,
-    onToggleSave: () -> Unit,
-    onPlayAll: () -> Unit = {},
-    onShuffle: () -> Unit = {},
+    actions: PlaylistActions,
     onDownloadAll: () -> Unit = {},
     isDownloadingAny: Boolean = false,
     isFullyDownloaded: Boolean = false,
@@ -307,7 +190,7 @@ internal fun PlaylistInfoPanel(
                     author.name,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = onSurfaceColor
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -340,7 +223,7 @@ internal fun PlaylistInfoPanel(
         textAlign = TextAlign.Center,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,
-        color = onSurfaceColor
+        color = MaterialTheme.colorScheme.onSurface
     )
 
     Spacer(Modifier.height(6.dp))
@@ -352,14 +235,14 @@ internal fun PlaylistInfoPanel(
         Text(
             "Playlist",
             style = MaterialTheme.typography.bodyMedium,
-            color = onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         val songCountText = playlistPage.playlist.songCountText
         if (!songCountText.isNullOrBlank()) {
             Text(
                 " • $songCountText",
                 style = MaterialTheme.typography.bodyMedium,
-                color = onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -371,7 +254,7 @@ internal fun PlaylistInfoPanel(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         IconButton(
-            onClick = { if (!isSaving) onToggleSave() },
+            onClick = { if (!isSaving) actions.onToggleSave() },
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
@@ -388,14 +271,14 @@ internal fun PlaylistInfoPanel(
                 Icon(
                     if (isSaved) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
                     null,
-                    tint = if (isSaved) MaterialTheme.colorScheme.primary else onSurfaceColor,
+                    tint = if (isSaved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(20.dp)
                 )
             }
         }
 
         FloatingActionButton(
-            onClick = { if (!isLoadingForPlay) onPlayAll() },
+            onClick = { if (!isLoadingForPlay) actions.onPlayAll() },
             shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -414,7 +297,7 @@ internal fun PlaylistInfoPanel(
         }
 
         IconButton(
-            onClick = { if (!isLoadingForPlay) onShuffle() },
+            onClick = { if (!isLoadingForPlay) actions.onShuffle() },
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
@@ -424,7 +307,7 @@ internal fun PlaylistInfoPanel(
             Icon(
                 Icons.Default.Shuffle,
                 null,
-                tint = onSurfaceColor,
+                tint = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -447,7 +330,7 @@ internal fun PlaylistInfoPanel(
                 Icon(
                     if (isFullyDownloaded) Icons.Default.DownloadDone else Icons.Default.Download,
                     null,
-                    tint = if (isFullyDownloaded) MaterialTheme.colorScheme.primary else onSurfaceColor,
+                    tint = if (isFullyDownloaded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -470,30 +353,25 @@ internal fun PlaylistSongItem(
     var isHovered by remember { mutableStateOf(false) }
     var showContextMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
-    var itemHeight by remember { mutableStateOf(0) }
-    val density = LocalDensity.current
 
     val color = if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent
 
-    Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
+    Box {
         Surface(
             color = color,
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
-                .clickable { onClick() }
                 .pointerHoverIcon(PointerIcon.Hand)
-                .onPointerEvent(PointerEventType.Enter) { isHovered = true }
-                .onPointerEvent(PointerEventType.Exit) { isHovered = false }
-                .onPointerEvent(PointerEventType.Press) {
-                    if (it.button == PointerButton.Secondary) {
-                        val position = it.changes.first().position
-                        val xDp = with(density) { position.x.toDp() }
-                        val yDp = with(density) { (position.y - itemHeight).toDp() }
-                        menuOffset = DpOffset(xDp, yDp)
+                .contextMenuArea(
+                    enabled = true,
+                    onHoverChange = { isHovered = it },
+                    onMenuAction = { offset ->
+                        menuOffset = offset
                         showContextMenu = true
                     }
-                }
+                )
+                .clickable { onClick() }
         ) {
             Row(
                 modifier = Modifier.padding(vertical = 10.dp, horizontal = 12.dp),
@@ -584,13 +462,8 @@ internal fun PlaylistSongItem(
         SongContextMenu(
             expanded = showContextMenu,
             onDismiss = { showContextMenu = false },
+            offset = menuOffset,
             song = song,
-            downloadState = downloadState,
-            onDownload = { downloadViewModel.downloadSong(song) },
-            onRemoveDownload = { downloadViewModel.removeDownload(song.id) },
-            onCancelDownload = { downloadViewModel.cancelDownload(song.id) },
-            onAddToQueue = { playerViewModel.addToQueue(song) },
-            onPlayNext = { playerViewModel.playNext(song) }
         )
     }
 }

@@ -128,7 +128,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(start = 4.dp, top = 12.dp, bottom = 12.dp, end = 12.dp)
+                        .padding(bottom = 12.dp, end = 12.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(MaterialTheme.colorScheme.surface)
                         .background(gradientBrush)
@@ -172,11 +172,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                             // MiniPlayer at the bottom
                             if (playerState.currentSong != null) {
                                 MiniPlayer(
-                                    state = playerState,
                                     progressState = progressState,
-                                    onTogglePlayPause = { playerViewModel.togglePlayPause() },
-                                    onNext = { playerViewModel.next() },
-                                    onPrevious = { playerViewModel.previous() },
                                     onClickExpand = { isNowPlayingExpanded = true }
                                 )
                             }

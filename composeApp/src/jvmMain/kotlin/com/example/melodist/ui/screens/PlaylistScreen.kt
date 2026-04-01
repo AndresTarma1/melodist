@@ -12,9 +12,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.BlurredImageBackground
@@ -25,6 +25,16 @@ import com.example.melodist.viewmodels.PlaylistViewModel
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.PlaylistPage
 
+
+data class PlaylistActions(
+    val onBack: () -> Unit,
+    val onNavigate: (Route) -> Unit,
+    val onToggleSave: () -> Unit,
+    val onPlayAll: () -> Unit,
+    val onShuffle: () -> Unit,
+    val onLoadMore: () -> Unit
+)
+
 @Composable
 fun PlaylistScreenRoute(
     onNavigate: (Route) -> Unit,
@@ -32,45 +42,53 @@ fun PlaylistScreenRoute(
     viewModel: PlaylistViewModel,
 ) {
     val uiState by viewModel.uiState.collectAsState()
+
+    val successState = uiState as? PlaylistState.Success
+    val playerViewModel = LocalPlayerViewModel.current
+
+    val actions = remember(viewModel) {
+        PlaylistActions(
+            onBack = onBack,
+            onNavigate = onNavigate,
+            onToggleSave = { viewModel.toggleSave() },
+            onLoadMore = { viewModel.loadMoreSongs() },
+            onPlayAll = {
+                val state = successState ?: return@PlaylistActions
+                viewModel.playAllSongs(shuffle = false) { allSongs, startIndex ->
+                    playerViewModel.playPlaylist(
+                        allSongs,
+                        startIndex,
+                        state.playlistPage.playlist.id,
+                        state.playlistPage.playlist.title
+                    )
+                }
+            },
+            onShuffle = {
+                val state = successState ?: return@PlaylistActions
+                viewModel.playAllSongs(shuffle = true) { allSongs, startIndex ->
+                    playerViewModel.playPlaylist(
+                        allSongs,
+                        startIndex,
+                        state.playlistPage.playlist.id,
+                        state.playlistPage.playlist.title
+                    )
+                }
+            }
+        )
+    }
+
     val songs by viewModel.songs.collectAsState()
     val hasMoreSongs by viewModel.hasMoreSongs.collectAsState()
 
-    val playerViewModel = LocalPlayerViewModel.current
-    val successState = uiState as? PlaylistState.Success
 
     PlaylistScreen(
         uiState = uiState,
         songs = songs,
         hasMore = hasMoreSongs,
-        onLoadMore = { viewModel.loadMoreSongs() },
-        onNavigate = onNavigate,
-        onBack = onBack,
         isSaved = successState?.isSaved ?: false,
         isSaving = successState?.isSaving ?: false,
         isLoadingForPlay = successState?.isLoadingForPlay ?: false,
-        onToggleSave = { viewModel.toggleSave() },
-        onPlayAll = {
-            val state = successState ?: return@PlaylistScreen
-            viewModel.playAllSongs(shuffle = false) { allSongs, startIndex ->
-                playerViewModel.playPlaylist(
-                    allSongs,
-                    startIndex,
-                    state.playlistPage.playlist.id,
-                    state.playlistPage.playlist.title
-                )
-            }
-        },
-        onShuffle = {
-            val state = successState ?: return@PlaylistScreen
-            viewModel.playAllSongs(shuffle = true) { allSongs, startIndex ->
-                playerViewModel.playPlaylist(
-                    allSongs,
-                    startIndex,
-                    state.playlistPage.playlist.id,
-                    state.playlistPage.playlist.title
-                )
-            }
-        },
+        actions = actions
     )
 }
 
@@ -79,15 +97,10 @@ fun PlaylistScreen(
     uiState: PlaylistState,
     songs: List<SongItem> = emptyList(),
     hasMore: Boolean = false,
-    onLoadMore: () -> Unit = {},
-    onNavigate: (Route) -> Unit,
-    onBack: () -> Unit,
     isSaved: Boolean = false,
     isSaving: Boolean = false,
     isLoadingForPlay: Boolean = false,
-    onToggleSave: () -> Unit = {},
-    onPlayAll: () -> Unit = {},
-    onShuffle: () -> Unit = {},
+    actions: PlaylistActions
 ) {
     val thumbnailUrl = (uiState as? PlaylistState.Success)?.playlistPage?.playlist?.thumbnail
 
@@ -103,15 +116,12 @@ fun PlaylistScreen(
                 playlistPage = uiState.playlistPage,
                 songs = songs,
                 hasMore = hasMore,
-                onLoadMore = onLoadMore,
-                onNavigate = onNavigate,
                 isSaved = isSaved,
                 isSaving = isSaving,
                 isLoadingForPlay = isLoadingForPlay,
-                onToggleSave = onToggleSave,
-                onPlayAll = onPlayAll,
-                onShuffle = onShuffle,
+                actions = actions
             )
+
             is PlaylistState.Error -> Box(
                 Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -120,9 +130,8 @@ fun PlaylistScreen(
             }
         }
 
-        // Floating back button
         IconButton(
-            onClick = onBack,
+            onClick = actions.onBack,
             modifier = Modifier.padding(8.dp).align(Alignment.TopStart)
         ) {
             Icon(
@@ -139,53 +148,23 @@ fun PlaylistScreenContent(
     playlistPage: PlaylistPage,
     songs: List<SongItem>,
     hasMore: Boolean = false,
-    onLoadMore: () -> Unit = {},
-    onNavigate: (Route) -> Unit,
     isSaved: Boolean = false,
     isSaving: Boolean = false,
     isLoadingForPlay: Boolean = false,
-    onToggleSave: () -> Unit = {},
-    onPlayAll: () -> Unit = {},
-    onShuffle: () -> Unit = {},
+    actions: PlaylistActions
 ) {
-    val onSurfaceColor = MaterialTheme.colorScheme.onSurface
-    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f)
-
     androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isCompact = maxWidth < 800.dp
 
-        if (isCompact) {
-            PlaylistCompact(
-                playlistPage = playlistPage,
-                songs = songs,
-                hasMore = hasMore,
-                onLoadMore = onLoadMore,
-                onSurfaceColor = onSurfaceColor,
-                onSurfaceVariant = onSurfaceVariant,
-                onNavigate = onNavigate,
-                isSaved = isSaved,
-                isSaving = isSaving,
-                isLoadingForPlay = isLoadingForPlay,
-                onToggleSave = onToggleSave,
-                onPlayAll = onPlayAll,
-                onShuffle = onShuffle,
-            )
-        } else {
-            PlaylistWide(
-                playlistPage = playlistPage,
-                songs = songs,
-                hasMore = hasMore,
-                onLoadMore = onLoadMore,
-                onSurfaceColor = onSurfaceColor,
-                onSurfaceVariant = onSurfaceVariant,
-                onNavigate = onNavigate,
-                isSaved = isSaved,
-                isSaving = isSaving,
-                isLoadingForPlay = isLoadingForPlay,
-                onToggleSave = onToggleSave,
-                onPlayAll = onPlayAll,
-                onShuffle = onShuffle,
-            )
-        }
+        PlaylistWide(
+            playlistPage = playlistPage,
+            songs = songs,
+            hasMore = hasMore,
+            isSaved = isSaved,
+            isSaving = isSaving,
+            isLoadingForPlay = isLoadingForPlay,
+            actions = actions
+        )
     }
+
 }

@@ -1,8 +1,12 @@
-package com.example.melodist.ui.components
+package com.example.melodist.ui.components.song
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
@@ -16,17 +20,27 @@ import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupProperties
 import com.example.melodist.player.DownloadState
+import com.example.melodist.ui.helpers.rememberSongDownloadState
+import com.example.melodist.utils.LocalDownloadViewModel
+import com.example.melodist.utils.LocalPlayerViewModel
 import com.metrolist.innertube.models.SongItem
 
 @Composable
@@ -67,67 +81,91 @@ internal fun DownloadIndicatorContent(
     }
 }
 
-@Suppress("UNUSED_PARAMETER")
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SongContextMenuContent(
     expanded: Boolean,
     onDismiss: () -> Unit,
     song: SongItem,
-    downloadState: DownloadState?,
-    onDownload: () -> Unit,
-    onRemoveDownload: () -> Unit,
-    onCancelDownload: () -> Unit,
-    onAddToQueue: (() -> Unit)? = null,
-    onPlayNext: (() -> Unit)? = null,
     onRemoveFromLibrary: (() -> Unit)? = null,
     offset: DpOffset = DpOffset.Zero
 ) {
-    DropdownMenu(
-        expanded = expanded,
-        onDismissRequest = onDismiss,
-        offset = offset,
+    val downloadViewModel = LocalDownloadViewModel.current
+    val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
+    val playerViewModel = LocalPlayerViewModel.current
+    // 1. Forzamos un radio de esquina grande para el contenedor del menú
+    MaterialTheme(
+        shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(24.dp))
     ) {
-        when (downloadState) {
-            is DownloadState.Completed -> DropdownMenuItem(
-                text = { Text("Eliminar descarga") },
-                onClick = { onRemoveDownload(); onDismiss() },
-                leadingIcon = { Icon(Icons.Default.DeleteOutline, null, tint = MaterialTheme.colorScheme.error) }
-            )
-            is DownloadState.Downloading, is DownloadState.Queued -> DropdownMenuItem(
-                text = { Text("Cancelar descarga") },
-                onClick = { onCancelDownload(); onDismiss() },
-                leadingIcon = { Icon(Icons.Default.Cancel, null, tint = MaterialTheme.colorScheme.error) }
-            )
-            else -> DropdownMenuItem(
-                text = { Text("Descargar") },
-                onClick = { onDownload(); onDismiss() },
-                leadingIcon = { Icon(Icons.Default.Download, null, tint = MaterialTheme.colorScheme.primary) }
-            )
-        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = onDismiss,
+            offset = offset,
+        ) {
+            // Función auxiliar para no repetir el estilo en cada item
+            @Composable
+            fun StyledMenuItem(
+                text: String,
+                icon: ImageVector,
+                iconTint: Color,
+                onClick: () -> Unit
+            ) {
+                DropdownMenuItem(
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp, vertical = 2.dp) // Espaciado para que no toque los bordes
+                        .clip(RoundedCornerShape(12.dp)), // <--- ESTO hace el hover/click redondeado
+                    text = { Text(text) },
+                    onClick = { onClick(); onDismiss() },
+                    leadingIcon = { Icon(icon, null, tint = iconTint) }
+                )
+            }
 
-        onPlayNext?.let { playNext ->
-            DropdownMenuItem(
-                text = { Text("Reproducir a continuación") },
-                onClick = { playNext(); onDismiss() },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.PlaylistAdd, null, tint = MaterialTheme.colorScheme.primary) }
-            )
-        }
+            // --- Lógica de Items ---
+            when (downloadState) {
+                is DownloadState.Completed -> StyledMenuItem(
+                    "Eliminar descarga",
+                    Icons.Default.DeleteOutline,
+                    MaterialTheme.colorScheme.error,
+                    { downloadViewModel.removeDownload(song.id) }
+                )
+                is DownloadState.Downloading, is DownloadState.Queued -> StyledMenuItem(
+                    "Cancelar descarga",
+                    Icons.Default.Cancel,
+                    MaterialTheme.colorScheme.error,
+                    { downloadViewModel.cancelDownload(song.id) }
+                )
+                else -> StyledMenuItem(
+                    "Descargar",
+                    Icons.Default.Download,
+                    MaterialTheme.colorScheme.primary
+                ) { downloadViewModel.downloadSong(song) }
+            }
 
-        onAddToQueue?.let { addToQueue ->
-            DropdownMenuItem(
-                text = { Text("Agregar al final de la cola") },
-                onClick = { addToQueue(); onDismiss() },
-                leadingIcon = { Icon(Icons.AutoMirrored.Filled.QueueMusic, null, tint = MaterialTheme.colorScheme.primary) }
-            )
-        }
 
-        onRemoveFromLibrary?.let { remove ->
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-            DropdownMenuItem(
-                text = { Text("Eliminar de la biblioteca") },
-                onClick = { remove(); onDismiss() },
-                leadingIcon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) }
-            )
+                StyledMenuItem(
+                    "Reproducir a continuación",
+                    Icons.AutoMirrored.Filled.PlaylistAdd,
+                    MaterialTheme.colorScheme.primary
+                ) { playerViewModel.playNext(song) }
+
+
+
+                StyledMenuItem(
+                    "Agregar al final de la cola",
+                    Icons.AutoMirrored.Filled.QueueMusic,
+                    MaterialTheme.colorScheme.primary
+                ) { playerViewModel.addToQueue(song) }
+
+
+            onRemoveFromLibrary?.let { remove ->
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp, horizontal = 12.dp))
+                StyledMenuItem(
+                    "Eliminar de la biblioteca",
+                    Icons.Default.Delete,
+                    MaterialTheme.colorScheme.error,
+                    remove
+                )
+            }
         }
     }
 }

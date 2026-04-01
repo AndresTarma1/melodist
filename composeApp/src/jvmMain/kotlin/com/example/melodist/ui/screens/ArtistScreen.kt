@@ -37,6 +37,7 @@ import com.example.melodist.ui.components.BlurredImageBackground
 import com.example.melodist.ui.components.HorizontalScrollableRow
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
+import com.example.melodist.ui.helpers.contextMenuArea
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.ArtistState
 import com.example.melodist.viewmodels.ArtistViewModel
@@ -513,8 +514,6 @@ private fun ArtistSectionCard(
     var isHovered by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
-    var itemHeight by remember { mutableStateOf(0) }
-    val density = androidx.compose.ui.platform.LocalDensity.current
 
     val elevation by animateColorAsState(
         if (isHovered) MaterialTheme.colorScheme.surfaceContainerHigh
@@ -527,7 +526,7 @@ private fun ArtistSectionCard(
         remember { mutableStateOf(null) }
     }
 
-    Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
+    Box {
         Column(
             modifier = Modifier
                 .width(150.dp)
@@ -542,17 +541,14 @@ private fun ArtistSectionCard(
                     }
                 }
                 .pointerHoverIcon(PointerIcon.Hand)
-                .onPointerEvent(PointerEventType.Enter) { isHovered = true }
-                .onPointerEvent(PointerEventType.Exit) { isHovered = false }
-                .onPointerEvent(PointerEventType.Press) {
-                    if (item is SongItem && it.button == androidx.compose.ui.input.pointer.PointerButton.Secondary) {
-                        val position = it.changes.first().position
-                        val xDp = with(density) { position.x.toDp() }
-                        val yDp = with(density) { (position.y - itemHeight).toDp() }
-                        menuOffset = androidx.compose.ui.unit.DpOffset(xDp, yDp)
+                .contextMenuArea(
+                    enabled = item is SongItem,
+                    onHoverChange = { isHovered = it },
+                    onMenuAction = { offset ->
+                        menuOffset = offset
                         showMenu = true
                     }
-                }
+                )
                 .padding(8.dp),
             horizontalAlignment = if (isArtist) Alignment.CenterHorizontally else Alignment.Start
         ) {
@@ -621,20 +617,6 @@ private fun ArtistSectionCard(
                 expanded = showMenu,
                 onDismiss = { showMenu = false },
                 song = item,
-                downloadState = downloadState,
-                onDownload = {
-                    scope.launch {
-                        val enrichedSong = if (item.duration == null || item.album == null) {
-                            com.metrolist.innertube.YouTube.next(com.metrolist.innertube.models.WatchEndpoint(videoId = item.id))
-                                .getOrNull()?.items?.firstOrNull { it.id == item.id } ?: item
-                        } else item
-                        downloadViewModel.downloadSong(enrichedSong)
-                    }
-                },
-                onRemoveDownload = { downloadViewModel.removeDownload(item.id) },
-                onCancelDownload = { downloadViewModel.cancelDownload(item.id) },
-                onAddToQueue = { playerViewModel.addToQueue(item) },
-                onPlayNext = { playerViewModel.playNext(item) },
                 offset = menuOffset
             )
         }

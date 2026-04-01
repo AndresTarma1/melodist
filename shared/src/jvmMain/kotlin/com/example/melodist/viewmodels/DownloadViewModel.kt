@@ -14,7 +14,6 @@ import com.example.melodist.db.entities.SongWithRelations
 import com.example.melodist.player.DownloadService
 
 import com.example.melodist.player.DownloadState
-import com.example.melodist.player.YTPlayerutils
 
 import com.metrolist.innertube.models.Album
 
@@ -40,10 +39,7 @@ import kotlinx.coroutines.flow.Flow
 
 import kotlinx.coroutines.flow.distinctUntilChanged
 
-import kotlinx.coroutines.delay
-
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 
@@ -228,7 +224,7 @@ class DownloadViewModel(
 
     val fullyDownloadedPlaylists: StateFlow<List<DownloadedPlaylistInfo>> = downloadedSongs
 
-        .map { dlSongs ->
+        .map { _ ->
 
             withContext(Dispatchers.IO) {
 

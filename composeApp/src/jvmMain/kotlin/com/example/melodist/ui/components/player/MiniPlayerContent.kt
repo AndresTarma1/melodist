@@ -35,19 +35,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.melodist.player.PlaybackState
+import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.PlayerProgressState
-import com.example.melodist.viewmodels.PlayerUiState
 
 @Composable
 internal fun MiniPlayerContent(
-    state: PlayerUiState,
     progressState: PlayerProgressState,
-    onTogglePlayPause: () -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit,
     onClickExpand: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val playerViewModel = LocalPlayerViewModel.current
+    val state = playerViewModel.uiState.value
+
     val song = state.currentSong ?: return
 
     val progress = remember(progressState.positionMs, progressState.durationMs) {
@@ -123,7 +122,7 @@ internal fun MiniPlayerContent(
                     horizontalArrangement = Arrangement.spacedBy(0.dp)
                 ) {
                     IconButton(
-                        onClick = onPrevious,
+                        onClick = { playerViewModel.previous() },
                         modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand)
                     ) {
                         Icon(
@@ -135,7 +134,7 @@ internal fun MiniPlayerContent(
                     }
 
                     FilledIconButton(
-                        onClick = onTogglePlayPause,
+                        onClick = { playerViewModel.togglePlayPause() },
                         modifier = Modifier.size(48.dp).pointerHoverIcon(PointerIcon.Hand),
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -171,7 +170,7 @@ internal fun MiniPlayerContent(
                     }
 
                     IconButton(
-                        onClick = onNext,
+                        onClick = { playerViewModel.next() },
                         modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand)
                     ) {
                         Icon(

@@ -77,6 +77,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpOffset
+import com.example.melodist.ui.helpers.contextMenuArea
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.example.melodist.viewmodels.SearchState
@@ -619,20 +620,14 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
         else -> 52.dp
     }
 
-    val iconBackground = when (item) {
-        is ArtistItem -> MaterialTheme.colorScheme.primaryContainer
-        is PlaylistItem -> MaterialTheme.colorScheme.secondaryContainer
-        else -> MaterialTheme.colorScheme.surfaceVariant
-    }
+
 
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
-    var itemHeight by remember { mutableStateOf(0) }
-    val density = LocalDensity.current
 
     var isHovered by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.onGloballyPositioned { itemHeight = it.size.height }) {
+    Box {
         ListItem(
             modifier = Modifier
                 .fillMaxWidth()
@@ -640,17 +635,14 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
                 .background(if (isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent)
                 .clickable { onItemClick(item) }
                 .pointerHoverIcon(PointerIcon.Hand)
-                .onPointerEvent(PointerEventType.Enter) { isHovered = true }
-                .onPointerEvent(PointerEventType.Exit) { isHovered = false }
-                .onPointerEvent(PointerEventType.Press) {
-                    if (item is SongItem && it.button == PointerButton.Secondary) {
-                        val position = it.changes.first().position
-                        val xDp = with(density) { position.x.toDp() }
-                        val yDp = with(density) { (position.y - itemHeight).toDp() }
-                        menuOffset = DpOffset(xDp, yDp)
+                .contextMenuArea(
+                    enabled = item is SongItem,
+                    onHoverChange = { isHovered = it },
+                    onMenuAction = { offset ->
+                        menuOffset = offset
                         showMenu = true
                     }
-                }
+                )
                 .padding(vertical = 2.dp), // Espaciado sutil entre items
             headlineContent = {
             Text(
@@ -708,8 +700,7 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
         trailingContent = {
             if (item is SongItem) {
                 IconButton(onClick = { 
-                    val sizeDp = with(density) { itemHeight.toDp() }
-                    menuOffset = DpOffset(1000.dp, -sizeDp/2)
+                    menuOffset = DpOffset.Zero
                     showMenu = true 
                 }) {
                     Icon(
@@ -724,20 +715,10 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
     )
 
     if (item is SongItem) {
-        val downloadViewModel = LocalDownloadViewModel.current
-        val playerViewModel = LocalPlayerViewModel.current
-        val downloadState by rememberSongDownloadState(item.id, downloadViewModel)
-
         SongContextMenu(
             expanded = showMenu,
             onDismiss = { showMenu = false },
             song = item,
-            downloadState = downloadState,
-            onDownload = { downloadViewModel.downloadSong(item) },
-            onRemoveDownload = { downloadViewModel.removeDownload(item.id) },
-            onCancelDownload = { downloadViewModel.cancelDownload(item.id) },
-            onAddToQueue = { playerViewModel?.addToQueue(item) },
-            onPlayNext = { playerViewModel?.playNext(item) },
             offset = menuOffset
         )
     }
