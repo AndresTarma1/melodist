@@ -1,6 +1,7 @@
 package com.example.melodist.ui.screens
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -19,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.BlurredImageBackground
 import com.example.melodist.ui.components.PlaylistScreenSkeleton
+import com.example.melodist.ui.screens.playlist.PlaylistWide
+import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.PlaylistState
 import com.example.melodist.viewmodels.PlaylistViewModel
@@ -32,7 +35,8 @@ data class PlaylistActions(
     val onToggleSave: () -> Unit,
     val onPlayAll: () -> Unit,
     val onShuffle: () -> Unit,
-    val onLoadMore: () -> Unit
+    val onLoadMore: () -> Unit,
+    val onDownloadPlaylist: () -> Unit
 )
 
 @Composable
@@ -45,8 +49,9 @@ fun PlaylistScreenRoute(
 
     val successState = uiState as? PlaylistState.Success
     val playerViewModel = LocalPlayerViewModel.current
+    val downloadViewModel = LocalDownloadViewModel.current
 
-    val actions = remember(viewModel) {
+    val actions = remember(viewModel, successState != null) {
         PlaylistActions(
             onBack = onBack,
             onNavigate = onNavigate,
@@ -72,6 +77,11 @@ fun PlaylistScreenRoute(
                         state.playlistPage.playlist.id,
                         state.playlistPage.playlist.title
                     )
+                }
+            },
+            onDownloadPlaylist = {
+                viewModel.downloadPlaylist { allSongs ->
+                    downloadViewModel.downloadAll(allSongs)
                 }
             }
         )
@@ -107,8 +117,8 @@ fun PlaylistScreen(
     BlurredImageBackground(
         imageUrl = thumbnailUrl,
         modifier = Modifier.fillMaxSize(),
-        darkOverlayAlpha = 0.52f,
-        gradientFraction = 0.45f
+        darkOverlayAlpha = 0.82f,
+        gradientFraction = 0.65f
     ) {
         when (uiState) {
             is PlaylistState.Loading -> PlaylistScreenSkeleton()
@@ -153,9 +163,7 @@ fun PlaylistScreenContent(
     isLoadingForPlay: Boolean = false,
     actions: PlaylistActions
 ) {
-    androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val isCompact = maxWidth < 800.dp
-
+    Box(modifier = Modifier.fillMaxSize()) {
         PlaylistWide(
             playlistPage = playlistPage,
             songs = songs,

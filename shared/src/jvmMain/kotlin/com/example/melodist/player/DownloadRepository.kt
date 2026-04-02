@@ -51,22 +51,12 @@ class DownloadRepository(
     }
 
     private fun scanExistingCache() {
-        scope.launch {
-            try {
-                val existing = mutableMapOf<String, DownloadState>()
-                for (ext in listOf("m4a", "webm", "ogg")) {
-                    cacheDir.listFiles { f -> f.extension == ext && f.length() > 0 }?.forEach { file ->
-                        val songId = file.nameWithoutExtension
-                        existing[songId] = DownloadState.Completed
-                        databaseDao.albumById("")
-                    }
-                }
-                if (existing.isNotEmpty()) {
-                    _downloadStates.update { it + existing }
-                }
-            } catch (e: Exception) {
-                log.warning("Failed to scan cache: ${'$'}{e.message}")
-            }
+        scope.launch(Dispatchers.IO) {
+            val files = cacheDir.listFiles() ?: return@launch
+            val existing = files.filter { it.extension in listOf("m4a", "webm", "ogg") && it.length() > 0 }
+                .associate { it.nameWithoutExtension to DownloadState.Completed }
+
+            _downloadStates.update { it + existing }
         }
     }
 
@@ -135,9 +125,8 @@ class DownloadRepository(
             if (current is DownloadState.Downloading || current is DownloadState.Queued) return@launch
 
             if (getCachedFile(songId) != null) {
+                updateSongDownloadStatus(songId, true, System.currentTimeMillis())
                 _downloadStates.update { it + (songId to DownloadState.Completed) }
-                databaseDao.updateSongDownloadStatus(songId, true, System.currentTimeMillis())
-                return@launch
             }
 
             try {
@@ -198,8 +187,18 @@ class DownloadRepository(
         }
     }
 
+
+
+    suspend fun updateSongDownloadStatus(songId: String, isDownloaded: Boolean, dateDownload: Long?) {
+        withContext(Dispatchers.IO) {
+            databaseDao.updateSongDownloadStatus(songId, isDownloaded, dateDownload)
+            yield()
+        }
+    }
+
+
     fun manejarError(songId: String, e: Exception) {
-        log.warning("Download failed: $songId — ${'$'}{e.message}")
+        log.warning("Download failed: $songId — ${'$'}${e.message}")
         _downloadStates.update { it + (songId to DownloadState.Failed(e.message ?: "Error desconocido")) }
         _pendingSongItems.update { it - songId }
     }
@@ -228,11 +227,14 @@ class DownloadRepository(
     }
 
     fun removeDownload(songId: String) {
-        cancelDownload(songId)
-        getCachedFile(songId)?.delete()
-        cleanupPartFiles(songId)
         _downloadStates.update { it - songId }
-        scope.launch { databaseDao.updateSongDownloadStatus(songId, false, null) }
+        scope.launch(Dispatchers.IO) {
+            cancelDownload(songId)
+            getCachedFile(songId)?.delete()
+            cleanupPartFiles(songId)
+            databaseDao.updateSongDownloadStatus(songId, false, null
+            )
+        }
         log.info("Removed download: $songId")
     }
 

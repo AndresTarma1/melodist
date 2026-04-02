@@ -1,4 +1,4 @@
-package com.example.melodist.ui.components
+package com.example.melodist.ui.components.player
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.melodist.player.PlaybackState
+import com.example.melodist.ui.components.MelodistImage
+import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.PlayerProgressState
 

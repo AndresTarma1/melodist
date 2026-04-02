@@ -2,8 +2,8 @@ package com.example.melodist.ui.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.example.melodist.ui.components.player.MiniPlayerContent
 import com.example.melodist.viewmodels.PlayerProgressState
-import com.example.melodist.viewmodels.PlayerUiState
 
 @Composable
 fun MiniPlayer(

@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.logging.Logger
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.Dispatchers
 
 sealed class PlaylistState {
     object Loading : PlaylistState()
@@ -31,7 +33,7 @@ sealed class PlaylistState {
 }
 
 class PlaylistViewModel(
-    private val repository: MusicRepository
+    private val repository: MusicRepository,
 ) : ViewModel() {
 
     private val log = Logger.getLogger("PlaylistViewModel")
@@ -55,7 +57,7 @@ class PlaylistViewModel(
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
-            initialValue = false
+            initialValue = _continuation.value != null
         )
 
     /** Actualiza un campo de PlaylistState.Success de forma segura; no-op si el estado no es Success */
@@ -160,7 +162,7 @@ class PlaylistViewModel(
                         success = true
                     }
                     .onFailure {
-                        delay(500L * (attempt + 1))
+                        delay((500L * (attempt + 1)).milliseconds)
                     }
             }
 
@@ -169,7 +171,7 @@ class PlaylistViewModel(
         }
     }
 
-    private suspend fun fetchAllRemainingPages(): List<SongItem> {
+    suspend fun fetchAllRemainingPages(): List<SongItem> {
         var token = _continuation.value
         // Usamos una lista local para no disparar recomposiciones constantes del StateFlow
         val accumulatedSongs = _songs.value.toMutableList()
@@ -191,7 +193,7 @@ class PlaylistViewModel(
                         fetched = true
                     }
                     .onFailure {
-                        delay(500L * (attempt + 1))
+                        delay((500L * (attempt + 1)).milliseconds)
                     }
             }
             if (!fetched) break
@@ -252,6 +254,13 @@ class PlaylistViewModel(
                     updateSuccess { copy(isSaving = false) }
                 }
             }
+        }
+    }
+
+    fun downloadPlaylist(onDownloadExecute: (List<SongItem>) -> Unit ) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val songs = fetchAllRemainingPages()
+            onDownloadExecute(songs) // Ejecutamos la función que nos pasaron
         }
     }
 }

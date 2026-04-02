@@ -232,14 +232,7 @@ internal fun PlaylistSkeletonSongRow(brush: Brush) {
 
 @Composable
 internal fun InfoPanelSkeleton(brush: Brush, coverSize: Dp) {
-    // Artist chip — matches Surface(RoundedCornerShape(20dp)) with CircleShape(22dp) + text
-    Box(
-        Modifier
-            .height(34.dp)
-            .width(140.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(brush)
-    )
+
     Spacer(Modifier.height(20.dp))
     // Cover — Card with shadow + RoundedCornerShape(8dp)
     Box(Modifier.size(coverSize).clip(RoundedCornerShape(8.dp)).background(brush))

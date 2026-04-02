@@ -18,8 +18,8 @@ sealed class DownloadState {
 
 /** Clase ligera que delega la lógica pesada al DownloadRepository. */
 class DownloadService(
-    private val streamResolver: AudioStreamResolver,
-    private val databaseDao: DatabaseDao
+    streamResolver: AudioStreamResolver,
+    databaseDao: DatabaseDao
 ) {
     private val repo = DownloadRepository(streamResolver, databaseDao)
 

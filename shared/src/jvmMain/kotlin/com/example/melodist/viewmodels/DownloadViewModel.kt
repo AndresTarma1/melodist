@@ -171,7 +171,7 @@ class DownloadViewModel(
                     if (totalCount <= 0) return@mapNotNull null
 
 
-                    val downloadedCount = databaseDao?.countDownloadedByAlbum(albumId) ?: 0L
+                    val downloadedCount = databaseDao.countDownloadedByAlbum(albumId) ?: 0L
 
                     if (downloadedCount >= totalCount.toLong()) {
 

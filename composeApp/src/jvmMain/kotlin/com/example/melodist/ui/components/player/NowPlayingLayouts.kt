@@ -1,4 +1,4 @@
-package com.example.melodist.ui.components
+package com.example.melodist.ui.components.player
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
@@ -35,7 +35,12 @@ import androidx.compose.ui.unit.dp
 import com.example.melodist.data.AppPreferences
 import com.example.melodist.navigation.Route
 import com.example.melodist.player.PlaybackState
+import com.example.melodist.ui.components.DownloadIndicator
+import com.example.melodist.ui.components.MelodistImage
+import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.artwork.ArtworkColors
+import com.example.melodist.ui.components.formatPlayerTimeValue
+import com.example.melodist.ui.components.upscaleThumbnailUrl
 import com.example.melodist.viewmodels.PlayerProgressState
 import com.example.melodist.viewmodels.PlayerUiState
 import com.example.melodist.viewmodels.QueueSource
@@ -50,15 +55,7 @@ fun WideLayout(
     state: PlayerUiState,
     progressState: PlayerProgressState,
     song: SongItem,
-    onTogglePlayPause: () -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit,
-    onSeek: (Long) -> Unit,
-    onVolumeChange: (Int) -> Unit,
-    onToggleShuffle: () -> Unit,
-    onToggleRepeat: () -> Unit,
     onCollapse: () -> Unit,
-    onQueueItemClick: (Int) -> Unit,
     artworkColors: ArtworkColors = ArtworkColors.Default,
     onNavigate: ((Route) -> Unit)? = null,
 ) {
@@ -101,18 +98,11 @@ fun WideLayout(
                 Spacer(Modifier.height(spacerLg))
                 SongHeader(state, song, TextAlign.Center, onNavigate, onCollapse)
                 Spacer(Modifier.height(spacerLg))
-                ProgressBar(progressState, onSeek)
+                ProgressBar(progressState){ playerViewModel.seekTo(it)}
                 Spacer(Modifier.height(spacerMd))
-                TransportControls(
-                    state,
-                    onTogglePlayPause,
-                    onNext,
-                    onPrevious,
-                    onToggleShuffle,
-                    onToggleRepeat
-                )
+                TransportControls(state)
                 Spacer(Modifier.height(spacerMd))
-                VolumeRow(state, onVolumeChange)
+                VolumeRow(state){ playerViewModel.setVolume(it)}
                 Spacer(Modifier.height(spacerMd))
             }
 
@@ -161,7 +151,7 @@ fun WideLayout(
                                 song = queueSong,
                                 index = index,
                                 isCurrent = index == state.currentIndex,
-                                onClick = { onQueueItemClick(index) }
+                                onClick = { playerViewModel.playAtIndex(index) }
                             )
                         }
                         Spacer(Modifier.height(32.dp))
@@ -375,7 +365,8 @@ fun ProgressBar(progressState: PlayerProgressState, onSeek: (Long) -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                formatPlayerTimeValue(seekPos?.let { (it * progressState.durationMs).toLong() } ?: progressState.positionMs),
+                formatPlayerTimeValue(seekPos?.let { (it * progressState.durationMs).toLong() }
+                    ?: progressState.positionMs),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f)
             )
@@ -390,13 +381,10 @@ fun ProgressBar(progressState: PlayerProgressState, onSeek: (Long) -> Unit) {
 
 @Composable
 fun TransportControls(
-    state: PlayerUiState,
-    onTogglePlayPause: () -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit,
-    onToggleShuffle: () -> Unit,
-    onToggleRepeat: () -> Unit,
+    state: PlayerUiState
 ) {
+    val playerViewModel = LocalPlayerViewModel.current
+
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val isVN = maxWidth < 280.dp
         val isN = maxWidth < 360.dp
@@ -429,14 +417,14 @@ fun TransportControls(
         ) {
             ToggleIconButton(
                 state.isShuffled,
-                onToggleShuffle,
+                { playerViewModel.toggleShuffle()},
                 toggleSize,
                 activeIcon = { Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(toggleIcon)) },
                 inactiveIcon = { Icon(Icons.Rounded.Shuffle, null, modifier = Modifier.size(toggleIcon)) }
             )
 
             IconButton(
-                onClick = onPrevious,
+                onClick = { playerViewModel.previous()},
                 modifier = Modifier.size(skipSize).pointerHoverIcon(PointerIcon.Hand)
             ) {
                 Icon(
@@ -448,7 +436,7 @@ fun TransportControls(
             }
 
             Surface(
-                onClick = onTogglePlayPause,
+                onClick = { playerViewModel.togglePlayPause()},
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                 border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)),
@@ -483,7 +471,7 @@ fun TransportControls(
             }
 
             IconButton(
-                onClick = onNext,
+                onClick = { playerViewModel.next()},
                 modifier = Modifier.size(skipSize).pointerHoverIcon(PointerIcon.Hand)
             ) {
                 Icon(
@@ -496,7 +484,7 @@ fun TransportControls(
 
             ToggleIconButton(
                 state.repeatMode != RepeatMode.OFF,
-                onToggleRepeat,
+                { playerViewModel.toggleRepeat()},
                 toggleSize,
                 activeIcon = {
                     Icon(

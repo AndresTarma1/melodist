@@ -101,17 +101,17 @@ class DatabaseDao(private val database: MelodistDatabase) {
 
     // ─── Internal: fetch relations (blocking) ───────────────
 
-    private fun artistsForSong(songId: String): List<ArtistEntity> {
+    private suspend fun artistsForSong(songId: String): List<ArtistEntity> = withContext(Dispatchers.IO) {
         val maps = database.songArtistMapQueries.selectBySong(songId).executeAsList()
-        if (maps.isEmpty()) return emptyList()
-        return maps.mapNotNull { map ->
+        if (maps.isEmpty()) return@withContext emptyList()
+        maps.mapNotNull { map ->
             database.artistQueries.artistById(map.artistId, ::mapArtist).executeAsOneOrNull()
         }
     }
 
-    private fun albumForSong(songId: String): AlbumEntity? {
-        val map = database.songAlbumMapQueries.selectBySong(songId).executeAsOneOrNull() ?: return null
-        return database.albumQueries.albumById(map.albumId, ::mapAlbum).executeAsOneOrNull()
+    private suspend fun albumForSong(songId: String): AlbumEntity? = withContext(Dispatchers.IO) {
+        val map = database.songAlbumMapQueries.selectBySong(songId).executeAsOneOrNull() ?: return@withContext null
+        database.albumQueries.albumById(map.albumId, ::mapAlbum).executeAsOneOrNull()
     }
 
     private fun artistsForAlbum(albumId: String): List<ArtistEntity> {
@@ -163,11 +163,14 @@ class DatabaseDao(private val database: MelodistDatabase) {
     fun songWithRelations(songId: String): Flow<SongWithRelations?> =
         songById(songId).map { songEntity ->
             songEntity?.let { song ->
-                SongWithRelations(
-                    song = song,
-                    artists = artistsForSong(songId),
-                    album = albumForSong(songId)
-                )
+                // USAMOS withContext aquí para que el mapeo de relaciones no trabe la UI
+                withContext(Dispatchers.IO) {
+                    SongWithRelations(
+                        song = song,
+                        artists = artistsForSong(songId),
+                        album = albumForSong(songId)
+                    )
+                }
             }
         }
 

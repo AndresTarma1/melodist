@@ -53,7 +53,7 @@ internal fun DownloadIndicatorContent(
             Icons.Default.HourglassTop,
             contentDescription = "En cola",
             modifier = modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
         is DownloadState.Downloading -> Box(modifier = modifier.size(20.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(
@@ -69,13 +69,13 @@ internal fun DownloadIndicatorContent(
             Icons.Default.DownloadDone,
             contentDescription = "Descargada",
             modifier = modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+            tint = MaterialTheme.colorScheme.primary
         )
         is DownloadState.Failed -> Icon(
             Icons.Default.ErrorOutline,
             contentDescription = "Error de descarga",
             modifier = modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+            tint = MaterialTheme.colorScheme.error
         )
         else -> Unit
     }

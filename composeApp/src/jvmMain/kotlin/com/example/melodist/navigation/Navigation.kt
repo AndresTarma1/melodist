@@ -138,15 +138,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                         NowPlayingPanel(
                             state = playerState,
                             progressState = progressState,
-                            onTogglePlayPause = { playerViewModel.togglePlayPause() },
-                            onNext = { playerViewModel.next() },
-                            onPrevious = { playerViewModel.previous() },
-                            onSeek = { playerViewModel.seekTo(it) },
-                            onVolumeChange = { playerViewModel.setVolume(it) },
-                            onToggleShuffle = { playerViewModel.toggleShuffle() },
-                            onToggleRepeat = { playerViewModel.toggleRepeat() },
                             onCollapse = { isNowPlayingExpanded = false },
-                            onQueueItemClick = { playerViewModel.playAtIndex(it) },
                             onNavigate = { route ->
                                 isNowPlayingExpanded = false
                                 rootComponent.navigateTo(route.toConfig())
@@ -278,10 +270,3 @@ fun navigationRailItemCustomColors() = NavigationRailItemDefaults.colors(
     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
     indicatorColor = Color.Transparent
 )
-
-@Composable
-fun FullScreenMessage(text: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(text, style = MaterialTheme.typography.headlineMedium)
-    }
-}
