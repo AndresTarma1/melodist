@@ -23,14 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerButton
-import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,8 +33,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
-import com.example.melodist.player.DownloadState
 import com.example.melodist.ui.components.DownloadIndicator
+import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.LoadingMoreSongsItem
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
@@ -336,15 +331,9 @@ internal fun AlbumSongsList(
             item { Spacer(modifier = Modifier.height(80.dp)) }
         }
 
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(scrollState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 12.dp),
-            style = LocalScrollbarStyle.current.copy(
-                thickness = 4.dp,
-                unhoverColor = onSurfaceVariant.copy(alpha = 0.08f),
-                hoverColor = onSurfaceVariant.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(2.dp)
-            )
+        AppVerticalScrollbar(
+            state = scrollState,
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 12.dp)
         )
     }
 }

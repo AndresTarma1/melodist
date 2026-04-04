@@ -9,7 +9,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -18,14 +17,10 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
-import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -33,6 +28,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.ArtistScreenSkeleton
+import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.BlurredImageBackground
 import com.example.melodist.ui.components.HorizontalScrollableRow
 import com.example.melodist.ui.components.MelodistImage
@@ -41,12 +37,9 @@ import com.example.melodist.ui.helpers.contextMenuArea
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.ArtistState
 import com.example.melodist.viewmodels.ArtistViewModel
-import com.example.melodist.viewmodels.PlayerViewModel
 import com.metrolist.innertube.models.*
 import com.metrolist.innertube.pages.ArtistPage
 import com.metrolist.innertube.pages.ArtistSection
-import kotlinx.coroutines.launch
-import org.koin.compose.koinInject
 
 @Composable
 fun ArtistScreenRoute(
@@ -54,14 +47,35 @@ fun ArtistScreenRoute(
     onBack: () -> Unit,
     viewModel: ArtistViewModel,
 ) {
-
     val playerViewModel = LocalPlayerViewModel.current
-
     val uiState by viewModel.uiState.collectAsState()
     val isSaved by viewModel.isSaved.collectAsState()
+    val successState = uiState as? ArtistState.Success
 
-    ArtistScreen(uiState, onNavigate, onBack, isSaved = isSaved, onToggleSave = { viewModel.toggleSave() })
+    val actions = remember(viewModel, playerViewModel, successState) {
+        ArtistScreenActions(
+            onToggleSave = { viewModel.toggleSave() },
+            onPlayTopSongs = {
+                val artistPage = successState?.artistPage ?: return@ArtistScreenActions
+                val songs = artistPage.sections.flatMap { it.items }.filterIsInstance<SongItem>()
+                if (songs.isNotEmpty()) playerViewModel.playCustom(songs, 0)
+            },
+            onShuffleTopSongs = {
+                val artistPage = successState?.artistPage ?: return@ArtistScreenActions
+                val songs = artistPage.sections.flatMap { it.items }.filterIsInstance<SongItem>()
+                if (songs.isNotEmpty()) playerViewModel.playCustom(songs.shuffled(), 0)
+            }
+        )
+    }
+
+    ArtistScreen(uiState, onNavigate, onBack, isSaved = isSaved, actions = actions)
 }
+
+data class ArtistScreenActions(
+    val onToggleSave: () -> Unit,
+    val onPlayTopSongs: () -> Unit,
+    val onShuffleTopSongs: () -> Unit,
+)
 
 @Composable
 fun ArtistScreen(
@@ -69,7 +83,7 @@ fun ArtistScreen(
     onNavigate: (Route) -> Unit,
     onBack: () -> Unit,
     isSaved: Boolean = false,
-    onToggleSave: () -> Unit = {}
+    actions: ArtistScreenActions,
 ) {
     val thumbnailUrl = (uiState as? ArtistState.Success)?.artistPage?.artist?.thumbnail
 
@@ -81,7 +95,7 @@ fun ArtistScreen(
     ) {
         when (uiState) {
             is ArtistState.Loading -> ArtistScreenSkeleton()
-            is ArtistState.Success -> ArtistScreenLayout(uiState.artistPage, onNavigate, isSaved = isSaved, onToggleSave = onToggleSave)
+            is ArtistState.Success -> ArtistScreenLayout(uiState.artistPage, onNavigate, isSaved = isSaved, actions = actions)
             is ArtistState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(uiState.message, color = MaterialTheme.colorScheme.error)
             }
@@ -102,20 +116,18 @@ fun ArtistScreen(
 }
 
 @Composable
-fun ArtistScreenLayout(artistPage: ArtistPage, onNavigate: (Route) -> Unit, isSaved: Boolean = false, onToggleSave: () -> Unit = {}) {
-    val surfaceColor = Color.Transparent
-    val onSurfaceColor = Color.White
-    val onSurfaceVariant = Color.White.copy(alpha = 0.65f)
-
+fun ArtistScreenLayout(
+    artistPage: ArtistPage,
+    onNavigate: (Route) -> Unit,
+    isSaved: Boolean = false,
+    actions: ArtistScreenActions,
+) {
     Box(modifier = Modifier.fillMaxSize()) {
         ArtistWideLayout(
             artistPage = artistPage,
-            onSurfaceColor = onSurfaceColor,
-            onSurfaceVariant = onSurfaceVariant,
-            surfaceColor = surfaceColor,
             onNavigate = onNavigate,
             isSaved = isSaved,
-            onToggleSave = onToggleSave
+            actions = actions
         )
     }
 }
@@ -123,14 +135,14 @@ fun ArtistScreenLayout(artistPage: ArtistPage, onNavigate: (Route) -> Unit, isSa
 @Composable
 private fun ArtistWideLayout(
     artistPage: ArtistPage,
-    onSurfaceColor: Color,
-    onSurfaceVariant: Color,
-    surfaceColor: Color,
     onNavigate: (Route) -> Unit,
     isSaved: Boolean,
-    onToggleSave: () -> Unit
+    actions: ArtistScreenActions
 ) {
     val scrollState = rememberScrollState()
+    val hasPlayableSongs = remember(artistPage.sections) {
+        artistPage.sections.any { section -> section.items.any { it is SongItem } }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -169,7 +181,7 @@ private fun ArtistWideLayout(
                             shape = CircleShape,
                             placeholderType = PlaceholderType.ARTIST,
                             iconSize = 72.dp,
-                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            contentScale = ContentScale.Crop,
                             alignment = Alignment.TopCenter
                         )
                     }
@@ -182,7 +194,7 @@ private fun ArtistWideLayout(
                         text = artistPage.artist.title,
                         style = MaterialTheme.typography.displaySmall,
                         fontWeight = FontWeight.Bold,
-                        color = onSurfaceColor,
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -193,7 +205,7 @@ private fun ArtistWideLayout(
                         Text(
                             text = it,
                             style = MaterialTheme.typography.bodyMedium,
-                            color = onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -201,7 +213,7 @@ private fun ArtistWideLayout(
                         Text(
                             text = it,
                             style = MaterialTheme.typography.bodySmall,
-                            color = onSurfaceVariant.copy(alpha = 0.7f)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -213,7 +225,7 @@ private fun ArtistWideLayout(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         IconButton(
-                            onClick = onToggleSave,
+                            onClick = actions.onToggleSave,
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(CircleShape)
@@ -223,30 +235,32 @@ private fun ArtistWideLayout(
                             Icon(
                                 if (isSaved) Icons.Default.PersonRemove else Icons.Default.PersonAdd,
                                 null,
-                                tint = if (isSaved) MaterialTheme.colorScheme.primary else onSurfaceColor,
+                                tint = if (isSaved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
 
                         FloatingActionButton(
-                            onClick = { /* TODO */ },
+                            onClick = { if (hasPlayableSongs) actions.onPlayTopSongs() },
                             shape = CircleShape,
                             containerColor = Color.White,
                             contentColor = Color.Black,
-                            modifier = Modifier.size(56.dp).pointerHoverIcon(PointerIcon.Hand)
+                            modifier = Modifier
+                                .size(56.dp)
+                                .pointerHoverIcon(if (hasPlayableSongs) PointerIcon.Hand else PointerIcon.Default)
                         ) {
                             Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(28.dp))
                         }
 
                         IconButton(
-                            onClick = { /* TODO */ },
+                            onClick = { if (hasPlayableSongs) actions.onShuffleTopSongs() },
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(CircleShape)
                                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                                .pointerHoverIcon(PointerIcon.Hand)
+                                .pointerHoverIcon(if (hasPlayableSongs) PointerIcon.Hand else PointerIcon.Default)
                         ) {
-                            Icon(Icons.Default.Shuffle, null, tint = onSurfaceColor, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Shuffle, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
@@ -256,7 +270,7 @@ private fun ArtistWideLayout(
 
             // Sections
             artistPage.sections.forEach { section ->
-                ArtistSectionRow(section, onNavigate, onSurfaceColor, onSurfaceVariant)
+                ArtistSectionRow(section, onNavigate, MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(24.dp))
             }
 
@@ -268,13 +282,13 @@ private fun ArtistWideLayout(
                         "Acerca de",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = onSurfaceColor
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = desc,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 6,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -284,15 +298,9 @@ private fun ArtistWideLayout(
             Spacer(Modifier.height(80.dp))
         }
 
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(scrollState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 12.dp, horizontal = 4.dp),
-            style = LocalScrollbarStyle.current.copy(
-                thickness = 4.dp,
-                unhoverColor = onSurfaceVariant.copy(alpha = 0.08f),
-                hoverColor = onSurfaceVariant.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(2.dp)
-            )
+        AppVerticalScrollbar(
+            state = scrollState,
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 12.dp, horizontal = 4.dp)
         )
     }
 }

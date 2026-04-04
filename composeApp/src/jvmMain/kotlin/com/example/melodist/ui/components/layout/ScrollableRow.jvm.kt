@@ -12,26 +12,26 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.example.melodist.ui.components.layout.appScrollbarStyle
 
 
 @Composable
 fun HorizontalScrollableRow(
-    modifier: Modifier,
+    modifier: Modifier = Modifier,
     state: LazyListState,
-    contentPadding: PaddingValues,
-    horizontalArrangement: Arrangement.Horizontal,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
     content: LazyListScope.() -> Unit
 ) {
+    val scrollbarStyle = appScrollbarStyle()
+
     Box(modifier = modifier) {
-        Column {
+        Column(modifier = Modifier.fillMaxWidth()) {
             LazyRow(
                 state = state,
                 contentPadding = contentPadding,
@@ -39,24 +39,18 @@ fun HorizontalScrollableRow(
                 modifier = Modifier.fillMaxWidth(),
                 content = content
             )
-            // Add a fixed spacer to prevent layout jumps
-            Spacer(modifier = Modifier.height(14.dp))
+            // Espaciador para que la barra no tape el contenido (opcional, ajusta según diseño)
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
         HorizontalScrollbar(
             adapter = rememberScrollbarAdapter(state),
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth(0.95f)
-                .height(6.dp),
-            style = androidx.compose.foundation.ScrollbarStyle(
-                minimalHeight = 16.dp,
-                thickness = 6.dp,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(3.dp),
-                hoverDurationMillis = 300,
-                unhoverColor = Color.White.copy(alpha = 0.05f),
-                hoverColor = Color.White.copy(alpha = 0.2f)
-            )
+                .fillMaxWidth() // Ocupa todo el ancho para simular la integración nativa
+                .padding(horizontal = 12.dp) // Un pequeño margen para que no toque los bordes laterales
+                .height(12.dp), // Área de interacción (el track es de 6dp por el style)
+            style = scrollbarStyle
         )
     }
 }

@@ -1,14 +1,9 @@
 package com.example.melodist.ui.components
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -17,6 +12,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.rounded.VolumeDown
+import androidx.compose.material.icons.automirrored.rounded.VolumeOff
+import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,7 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -33,13 +30,13 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.melodist.player.PlaybackState
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.PlayerProgressState
+import com.example.melodist.viewmodels.QueueSource
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,6 +44,8 @@ import com.example.melodist.viewmodels.PlayerProgressState
 fun MiniPlayer(
     progressState: PlayerProgressState,
     onClickExpand: () -> Unit,
+    onToggleNowPlaying: () -> Unit,
+    isNowPlayingExpanded: Boolean,
     onToggleQueue: () -> Unit,
     isQueueVisible: Boolean,
     modifier: Modifier = Modifier
@@ -63,6 +62,16 @@ fun MiniPlayer(
     var seekValue by remember { mutableStateOf<Float?>(null) }
     val sliderProgress = seekValue ?: computedProgress
     val isError = state.playbackState == PlaybackState.ERROR
+    val isAlbumQueue = state.queueSource is QueueSource.Album
+    val discRotation by rememberInfiniteTransition(label = "miniAlbumDisc").animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(12000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "miniAlbumDiscRotation"
+    )
 
     Surface(
         modifier = modifier.fillMaxWidth().height(88.dp),
@@ -82,12 +91,36 @@ fun MiniPlayer(
                     .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // ── IZQUIERDA: Portada e Info ───────────────────
+                // —─ IZQUIERDA: Portada e Info —─—─—─—─—─—─—─—─—─—
                 Row(
                     modifier = Modifier.weight(1f),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    if (isAlbumQueue) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                .clickable(onClick = onClickExpand)
+                                .pointerHoverIcon(PointerIcon.Hand),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            MelodistImage(
+                                url = song.thumbnail,
+                                contentDescription = song.title,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .graphicsLayer { rotationZ = discRotation },
+                                shape = CircleShape,
+                                contentScale = ContentScale.Crop,
+                                placeholderType = PlaceholderType.ALBUM,
+                                iconSize = 18.dp
+                            )
+                        }
+                    } else {
                         MelodistImage(
                             url = song.thumbnail,
                             contentDescription = song.title,
@@ -101,6 +134,7 @@ fun MiniPlayer(
                             placeholderType = PlaceholderType.SONG,
                             iconSize = 24.dp
                         )
+                    }
 
                     Column(
                         modifier = Modifier
@@ -126,7 +160,7 @@ fun MiniPlayer(
                     }
                 }
 
-                // ── CENTRO: Controles y Progreso (Espaciado corregido) ──────────
+                // —─ CENTRO: Controles y Progreso (Espaciado corregido) —─—─—─—─—─
                 Column(
                     modifier = Modifier.weight(1.6f), // Un poco más de peso para acomodar más botones
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -139,7 +173,7 @@ fun MiniPlayer(
                     ) {
                         // Botón Aleatorio
                         IconButton(
-                            onClick = { /* TODO: playerViewModel.toggleShuffle() */ },
+                            onClick = { playerViewModel.toggleShuffle() },
                             modifier = Modifier.size(36.dp).pointerHoverIcon(PointerIcon.Hand)
                         ) {
                             Icon(
@@ -184,7 +218,7 @@ fun MiniPlayer(
                             modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand)
                         ) {
                             Icon(
-                                Icons.Rounded.SkipNext, "Siguiente",
+                                Icons.Rounded.SkipNext, "siguiente",
                                 tint = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.size(32.dp)
                             )
@@ -192,7 +226,7 @@ fun MiniPlayer(
 
                         // Botón Repetir
                         IconButton(
-                            onClick = { /* TODO: playerViewModel.toggleRepeat() */ },
+                            onClick = { playerViewModel.toggleRepeat() },
                             modifier = Modifier.size(36.dp).pointerHoverIcon(PointerIcon.Hand)
                         ) {
                             Icon(
@@ -235,7 +269,7 @@ fun MiniPlayer(
                     }
                 }
 
-                // ── DERECHA: Botón Extra, Cola y Volumen ───────────────────
+                // —— DERECHA: Botón Extra, Cola y Volumen ———————————————————
                 Row(
                     modifier = Modifier.weight(1f),
                     horizontalArrangement = Arrangement.End,
@@ -243,14 +277,14 @@ fun MiniPlayer(
                 ) {
                     // Botón Extra (Diseño pendiente)
                     IconButton(
-                        onClick = { /* Acción por decidir */ },
+                        onClick = onToggleNowPlaying,
                         modifier = Modifier.size(40.dp).pointerHoverIcon(PointerIcon.Hand)
                     ) {
                         Icon(
                             Icons.Rounded.MoreHoriz, // Placeholder: tres puntos
                             "Opciones",
                             modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            tint = if (isNowPlayingExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
@@ -266,15 +300,18 @@ fun MiniPlayer(
 
                     Spacer(Modifier.width(4.dp))
 
-                    HoverVolumeControl()
+                    HoverVolumeControl(
+                        volume = (state.volume.coerceIn(0, 100)) / 100f,
+                        onVolumeChange = { playerViewModel.setVolume((it * 100).toInt()) }
+                    )
                 }
             }
         }
     }
 }
-// ─────────────────────────────────────────────────────────────────────────────
+// —————————————————————————————————————————————————————————————————————————————
 // Slider compacto — Eliminación del padding de Material 3
-// ─────────────────────────────────────────────────────────────────────────────
+// —————————————————————————————————————————————————————————————————————————————
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -302,7 +339,7 @@ private fun CompactSlider(
             onValueChange = onValueChange,
             onValueChangeFinished = onValueChangeFinished,
             interactionSource = interactionSource,
-            modifier = modifier.height(16.dp), // Mantenerlo super delgado
+            modifier = modifier.height(16.dp), // Mantenerlo superdelegate
             colors = SliderDefaults.colors(
                 thumbColor = trackColor,
                 activeTrackColor = trackColor,
@@ -314,14 +351,16 @@ private fun CompactSlider(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// —————————————————————————————————————————————————————————————————————————————
 // Volumen: ícono y slider compactados
-// ─────────────────────────────────────────────────────────────────────────────
+// —————————————————————————————————————————————————————————————————————————————
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun HoverVolumeControl() {
-    var volume by remember { mutableStateOf(0.8f) }
+private fun HoverVolumeControl(
+    volume: Float,
+    onVolumeChange: (Float) -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
 
     val sliderWidth by animateDpAsState(
@@ -353,14 +392,14 @@ private fun HoverVolumeControl() {
             .pointerHoverIcon(PointerIcon.Hand)
     ) {
         IconButton(
-            onClick = { volume = if (volume > 0f) 0f else 0.8f },
+            onClick = { onVolumeChange(if (volume > 0f) 0f else 0.8f) },
             modifier = Modifier.size(40.dp) // Botón más grande
         ) {
             Icon(
                 when {
-                    volume == 0f -> Icons.Rounded.VolumeOff
-                    volume < 0.4f -> Icons.Rounded.VolumeDown
-                    else -> Icons.Rounded.VolumeUp
+                    volume == 0f -> Icons.AutoMirrored.Rounded.VolumeOff
+                    volume < 0.4f -> Icons.AutoMirrored.Rounded.VolumeDown
+                    else -> Icons.AutoMirrored.Rounded.VolumeUp
                 },
                 "Volumen",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -372,7 +411,7 @@ private fun HoverVolumeControl() {
             CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
                 Slider(
                     value = volume,
-                    onValueChange = { volume = it },
+                    onValueChange = onVolumeChange,
                     modifier = Modifier
                         .width(sliderWidth)
                         .height(16.dp)

@@ -1,4 +1,4 @@
-package com.example.melodist.ui.components
+package com.example.melodist.ui.components.images
 
 /**
  * Upscales a YouTube thumbnail URL to a target size.

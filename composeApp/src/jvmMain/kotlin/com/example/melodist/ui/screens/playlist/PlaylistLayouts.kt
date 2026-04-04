@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import com.example.melodist.ui.components.DownloadIndicator
+import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.LoadingMoreSongsItem
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
@@ -128,8 +129,10 @@ internal fun PlaylistLayout(
                 if (state.hasMore) item { LoadingMoreSongsItem(onLoadMore = actions.onLoadMore) }
             }
 
-            // Aquí asumo que tienes tu propio VerticalScrollbar
-            // VerticalScrollbar(...)
+            AppVerticalScrollbar(
+                state = lazyListState,
+                modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 8.dp)
+            )
         }
     }
 }

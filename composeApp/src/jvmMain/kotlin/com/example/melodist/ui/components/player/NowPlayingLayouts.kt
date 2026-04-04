@@ -2,15 +2,21 @@ package com.example.melodist.ui.components.player
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode as InfiniteRepeatMode
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,7 +69,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
@@ -80,7 +86,7 @@ import com.example.melodist.ui.components.DownloadIndicator
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
 import com.example.melodist.ui.components.formatPlayerTimeValue
-import com.example.melodist.ui.components.upscaleThumbnailUrl
+import com.example.melodist.ui.components.images.upscaleThumbnailUrl
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
@@ -93,13 +99,10 @@ import com.metrolist.innertube.models.SongItem
 @Composable
 fun NowPlayingLayout(
     state: PlayerUiState,
-    progressState: PlayerProgressState,
     song: SongItem,
     onCollapse: () -> Unit,
     onNavigate: ((Route) -> Unit)? = null,
 ) {
-    val playerViewModel = LocalPlayerViewModel.current
-
     BlurredImageBackground(
         imageUrl = song.thumbnail,
         modifier = Modifier.fillMaxSize(),
@@ -123,16 +126,61 @@ fun NowPlayingLayout(
             }
 
             Spacer(Modifier.height(18.dp))
-            CoverArt(url = song.thumbnail, title = song.title, size = 440)
+            if (state.queueSource is QueueSource.Album) {
+                AlbumDiscLarge(url = song.thumbnail, title = song.title)
+            } else {
+                CoverArt(url = song.thumbnail, title = song.title, size = 440)
+            }
             Spacer(Modifier.height(24.dp))
             SongHeader(state = state, song = song, textAlign = TextAlign.Center, onNavigate = onNavigate, onCollapse = onCollapse)
-//            Spacer(Modifier.height(24.dp))
-//            ProgressBar(progressState = progressState) { playerViewModel.seekTo(it) }
-//            Spacer(Modifier.height(14.dp))
-//            TransportControls(state = state)
-//            Spacer(Modifier.height(12.dp))
-//            VolumeRow(state = state) { playerViewModel.setVolume(it) }
         }
+    }
+}
+
+@Composable
+private fun AlbumDiscLarge(url: String?, title: String) {
+    val highRes by AppPreferences.highResCoverArt.collectAsState()
+    val highResUrl = if (highRes) upscaleThumbnailUrl(url, 1080) else url
+    val rotation by rememberInfiniteTransition(label = "nowPlayingAlbumDisc").animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(12000, easing = LinearEasing),
+            repeatMode = InfiniteRepeatMode.Restart
+        ),
+        label = "nowPlayingAlbumDiscRotation"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(460.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.82f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(420.dp)
+                .clip(CircleShape)
+                .rotate(rotation)
+        ) {
+            MelodistImage(
+                url = highResUrl,
+                contentDescription = title,
+                modifier = Modifier.fillMaxSize(),
+                shape = CircleShape,
+                placeholderType = PlaceholderType.ALBUM,
+                iconSize = 64.dp,
+                contentScale = ContentScale.Crop
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surface)
+        )
     }
 }
 
@@ -331,109 +379,6 @@ fun SongHeader(
     }
 }
 
-@Composable
-fun ProgressBar(progressState: PlayerProgressState, onSeek: (Long) -> Unit) {
-    var seekPos by remember { mutableStateOf<Float?>(null) }
-    val progress = seekPos
-        ?: if (progressState.durationMs > 0) progressState.positionMs.toFloat() / progressState.durationMs.toFloat() else 0f
-
-    Column(modifier = Modifier.fillMaxWidth(0.72f)) {
-        Slider(
-            value = progress,
-            onValueChange = { seekPos = it },
-            onValueChangeFinished = {
-                seekPos?.let { onSeek((it * progressState.durationMs).toLong()) }
-                seekPos = null
-            },
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary,
-                inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.20f)
-            )
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = formatPlayerTimeValue(seekPos?.let { (it * progressState.durationMs).toLong() } ?: progressState.positionMs),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = formatPlayerTimeValue(progressState.durationMs),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-fun TransportControls(state: PlayerUiState) {
-    val playerViewModel = LocalPlayerViewModel.current
-
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        FilledIconButton(
-            onClick = { playerViewModel.previous() },
-            modifier = Modifier.size(44.dp).pointerHoverIcon(PointerIcon.Hand),
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            )
-        ) {
-            Icon(Icons.Rounded.SkipPrevious, contentDescription = "Anterior")
-        }
-
-        FilledIconButton(
-            onClick = { playerViewModel.togglePlayPause() },
-            modifier = Modifier.size(58.dp).pointerHoverIcon(PointerIcon.Hand),
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
-        ) {
-            when (state.playbackState) {
-                PlaybackState.LOADING, PlaybackState.BUFFERING -> CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.5.dp,
-                    strokeCap = StrokeCap.Round
-                )
-                else -> {
-                    AnimatedContent(
-                        targetState = state.playbackState == PlaybackState.PLAYING,
-                        transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(140)) },
-                        label = "playPause"
-                    ) { playing ->
-                        Icon(
-                            imageVector = if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = if (playing) "Pausar" else "Reproducir",
-                            modifier = Modifier.size(30.dp)
-                        )
-                    }
-                }
-            }
-        }
-
-        FilledIconButton(
-            onClick = { playerViewModel.next() },
-            modifier = Modifier.size(44.dp).pointerHoverIcon(PointerIcon.Hand),
-            colors = IconButtonDefaults.filledIconButtonColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                contentColor = MaterialTheme.colorScheme.onSurface
-            )
-        ) {
-            Icon(Icons.Rounded.SkipNext, contentDescription = "Siguiente")
-        }
-
-        PlayerModeButtons(state = state)
-    }
-}
 
 @Composable
 private fun PlayerModeButtons(state: PlayerUiState) {

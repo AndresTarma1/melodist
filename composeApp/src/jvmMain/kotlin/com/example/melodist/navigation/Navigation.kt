@@ -2,6 +2,7 @@ package com.example.melodist.navigation
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -14,6 +15,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.unit.dp
@@ -153,7 +157,6 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                         if (isNowPlayingExpanded && currentSong != null) {
                             NowPlayingLayout(
                                 state = playerState,
-                                progressState = progressState,
                                 song = currentSong,
                                 onCollapse = { isNowPlayingExpanded = false },
                                 onNavigate = { route ->
@@ -174,6 +177,36 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                         }
                     }
 
+                    // 🎚️ DIVISOR ARRASTRABLE (Actúa como el 'gap' interactivo)
+                    if (isQueueVisible) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(16.dp) // El grosor del gap
+                                .pointerHoverIcon(PointerIcon.Hand) // Cursor de manita al pasar por encima
+                                .pointerInput(Unit) {
+                                    detectHorizontalDragGestures { _, dragAmount ->
+                                        // Convertimos los píxeles arrastrados a Dp
+                                        val dragDp = with(density) { dragAmount.toDp() }
+                                        // Restamos dragDp porque arrastrar a la IZQUIERDA (negativo)
+                                        // debe hacer que la cola de la DERECHA sea más ancha.
+                                        // Usamos coerceIn para poner un límite mínimo y máximo de ancho.
+                                        queueWidth = (queueWidth - dragDp).coerceIn(250.dp, 600.dp)
+                                    }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            // Un pequeño indicador visual (pill) para que el usuario sepa que se puede arrastrar
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxHeight(0.08f) // Altura cortita
+                                    .width(4.dp)
+                                    .clip(RoundedCornerShape(2.dp))
+                                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
+                            )
+                        }
+                    }
+
                     // 🏝️ ISLA 2: Cola de Reproducción
                     // Animamos dinámicamente el gap para que aparezca suavemente al abrir la cola
                     val queueGap by animateDpAsState(
@@ -187,6 +220,7 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                         onDismiss = { isQueueVisible = false },
                         modifier = Modifier
                             .fillMaxHeight()
+                            .width(queueWidth)
                             .padding(start = queueGap) // Separación visual entre la ruta principal y la cola
                             .clip(RoundedCornerShape(16.dp)) // Redondeo individual
                             .background(if (isQueueVisible) MaterialTheme.colorScheme.surfaceContainer else Color.Transparent)
@@ -200,6 +234,8 @@ fun NavigationDesktop(rootComponent: RootComponent) {
                     MiniPlayer(
                         progressState = progressState,
                         onClickExpand = { isNowPlayingExpanded = true },
+                        onToggleNowPlaying = { isNowPlayingExpanded = !isNowPlayingExpanded },
+                        isNowPlayingExpanded = isNowPlayingExpanded,
                         onToggleQueue = { isQueueVisible = !isQueueVisible },
                         isQueueVisible = isQueueVisible,
                         modifier = Modifier

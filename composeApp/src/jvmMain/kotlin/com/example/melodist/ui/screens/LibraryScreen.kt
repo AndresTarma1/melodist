@@ -29,8 +29,6 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -38,7 +36,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.melodist.navigation.Route
-import com.example.melodist.player.DownloadState
+import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.DownloadIndicator
 import com.example.melodist.ui.components.HorizontalScrollableRow
 import com.example.melodist.ui.components.MelodistImage
@@ -414,15 +412,9 @@ private fun SongsTab(
                 }
             }
         }
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(listState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp),
-            style = LocalScrollbarStyle.current.copy(
-                thickness = 4.dp,
-                unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f),
-                hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(2.dp)
-            )
+        AppVerticalScrollbar(
+            state = listState,
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp)
         )
     }
 }
@@ -570,15 +562,9 @@ private fun AlbumsTab(
                 }
             }
         }
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(gridState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp),
-            style = LocalScrollbarStyle.current.copy(
-                thickness = 4.dp,
-                unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f),
-                hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(2.dp)
-            )
+        AppVerticalScrollbar(
+            state = gridState,
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp)
         )
     }
 }
@@ -645,15 +631,9 @@ private fun ArtistsTab(
                 }
             }
         }
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(gridState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp),
-            style = LocalScrollbarStyle.current.copy(
-                thickness = 4.dp,
-                unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f),
-                hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(2.dp)
-            )
+        AppVerticalScrollbar(
+            state = gridState,
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp)
         )
     }
 }
@@ -724,15 +704,9 @@ private fun PlaylistsTab(
                 }
             }
         }
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(gridState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp),
-            style = LocalScrollbarStyle.current.copy(
-                thickness = 4.dp,
-                unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f),
-                hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(2.dp)
-            )
+        AppVerticalScrollbar(
+            state = gridState,
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp)
         )
     }
 }
@@ -821,15 +795,9 @@ private fun DownloadsTab(
                 }
             }
         }
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(gridState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp),
-            style = LocalScrollbarStyle.current.copy(
-                thickness = 4.dp,
-                unhoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f),
-                hoverColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(2.dp)
-            )
+        AppVerticalScrollbar(
+            state = gridState,
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp)
         )
     }
 }

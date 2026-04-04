@@ -4,7 +4,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -26,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.example.melodist.data.AppPreferences
 import com.example.melodist.data.AudioQuality
 import com.example.melodist.data.ThemeMode
+import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.viewmodels.DownloadViewModel
 
 @Composable
@@ -192,15 +192,9 @@ fun SettingsScreen() {
         }
 
         // Scrollbar
-        VerticalScrollbar(
-            adapter  = rememberScrollbarAdapter(scrollState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding( end = 4.dp).padding(vertical = 8.dp),
-            style    = LocalScrollbarStyle.current.copy(
-                thickness    = 4.dp,
-                unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                hoverColor   = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f),
-                shape        = CircleShape
-            )
+        AppVerticalScrollbar(
+            state = scrollState,
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 4.dp).padding(vertical = 8.dp)
         )
     }
 }

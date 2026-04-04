@@ -37,7 +37,7 @@ class ArtistViewModel(
 
 
     fun loadArtist(browseId: String) {
-        // Observe saved state
+        _currentBrowseId.value = browseId
 
         viewModelScope.launch {
             _uiState.value = ArtistState.Loading

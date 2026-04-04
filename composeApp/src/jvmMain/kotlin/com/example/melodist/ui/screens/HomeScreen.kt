@@ -23,14 +23,13 @@ import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.ChipRowSkeleton
+import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.HorizontalScrollableRow
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
@@ -47,17 +46,11 @@ import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.pages.HomePage
-import androidx.compose.ui.input.pointer.PointerButton
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.onPointerEvent
 import com.example.melodist.ui.components.SongContextMenu
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.ui.helpers.contextMenuArea
 import com.example.melodist.ui.components.DownloadIndicator
-import com.metrolist.innertube.YouTube
-import com.metrolist.innertube.models.WatchEndpoint
-import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreenRoute(
@@ -249,14 +242,9 @@ fun HomeScreenContent(
             }
         }
 
-        VerticalScrollbar(
-            adapter = rememberScrollbarAdapter(scrollState),
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(12.dp),
-            style = LocalScrollbarStyle.current.copy(
-                thickness = 6.dp,
-                unhoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                hoverColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-            )
+        AppVerticalScrollbar(
+            state = scrollState,
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(12.dp)
         )
     }
 }
@@ -279,8 +267,6 @@ fun MusicItem(item: YTItem, onClick: (YTItem) -> Unit) {
     val aspectRatio = item.thumbnailAspectRatio()
 
     val downloadViewModel = LocalDownloadViewModel.current
-    val playerViewModel = LocalPlayerViewModel.current
-    val scope = rememberCoroutineScope()
 
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
