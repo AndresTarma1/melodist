@@ -24,24 +24,28 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.melodist.data.AppDirs
 import com.example.melodist.data.AppPreferences
-import com.example.melodist.data.AudioQuality
-import com.example.melodist.data.ThemeMode
+import com.example.melodist.data.repository.AudioQuality
+import com.example.melodist.data.repository.ThemeMode
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.screens.shared.openFolder
 import com.example.melodist.utils.LocalDownloadViewModel
+import org.koin.compose.koinInject
+import com.example.melodist.viewmodels.SettingsViewModel
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(
+    viewModel: SettingsViewModel = koinInject()
+) {
     val scrollState       = rememberScrollState()
     val downloadViewModel = LocalDownloadViewModel.current
 
-    val audioQuality   by AppPreferences.audioQuality.collectAsState()
-    val themeMode      by AppPreferences.themeMode.collectAsState()
-    val dynamicColor   by AppPreferences.dynamicColorFromArtwork.collectAsState()
-    val highResCover   by AppPreferences.highResCoverArt.collectAsState()
-    val cacheImages    by AppPreferences.cacheImages.collectAsState()
-    val imagesEnabled  by AppPreferences.imagesEnabled.collectAsState()
-    val minimizeToTray by AppPreferences.minimizeToTray.collectAsState()
+    val audioQuality   by viewModel.audioQuality.collectAsState()
+    val themeMode      by viewModel.themeMode.collectAsState()
+    val dynamicColor   by viewModel.dynamicColorFromArtwork.collectAsState()
+    val highResCover   by viewModel.highResCoverArt.collectAsState()
+    val cacheImages    by viewModel.cacheImages.collectAsState()
+    val imagesEnabled  by viewModel.imagesEnabled.collectAsState()
+    val minimizeToTray by viewModel.minimizeToTray.collectAsState()
     val cacheSizeText  by downloadViewModel.cacheSizeText.collectAsState()
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -76,7 +80,7 @@ fun SettingsScreen() {
                         icon     = Icons.Rounded.Tune,
                         options  = AudioQuality.entries.map { it.label },
                         selected = AudioQuality.entries.indexOf(audioQuality),
-                        onSelect = { AppPreferences.setAudioQuality(AudioQuality.entries[it]) }
+                        onSelect = { viewModel.setAudioQuality(AudioQuality.entries[it]) }
                     )
                 }
 
@@ -88,14 +92,14 @@ fun SettingsScreen() {
                         icon     = Icons.Rounded.DarkMode,
                         options  = ThemeMode.entries.map { it.label },
                         selected = ThemeMode.entries.indexOf(themeMode),
-                        onSelect = { AppPreferences.setThemeMode(ThemeMode.entries[it]) }
+                        onSelect = { viewModel.setThemeMode(ThemeMode.entries[it]) }
                     )
                     RowDivider()
                     ToggleRow(
                         label           = "Colores dinámicos desde la carátula",
                         icon            = Icons.Rounded.ColorLens,
                         checked         = dynamicColor,
-                        onCheckedChange = { AppPreferences.setDynamicColorFromArtwork(it) }
+                        onCheckedChange = { viewModel.setDynamicColorFromArtwork(it) }
                     )
                 }
 
@@ -106,14 +110,14 @@ fun SettingsScreen() {
                         label           = "Carátulas en alta resolución",
                         icon            = Icons.Rounded.HighQuality,
                         checked         = highResCover,
-                        onCheckedChange = { AppPreferences.setHighResCoverArt(it) }
+                        onCheckedChange = { viewModel.setHighResCoverArt(it) }
                     )
                     RowDivider()
                     ToggleRow(
                         label           = "Mostrar imágenes",
                         icon            = Icons.Rounded.Image,
                         checked         = imagesEnabled,
-                        onCheckedChange = { AppPreferences.setImagesEnabled(it) }
+                        onCheckedChange = { viewModel.setImagesEnabled(it) }
                     )
                 }
 
@@ -124,14 +128,14 @@ fun SettingsScreen() {
                         label           = "Minimizar a la bandeja del sistema",
                         icon            = Icons.Rounded.NotificationsActive,
                         checked         = minimizeToTray,
-                        onCheckedChange = { AppPreferences.setMinimizeToTray(it) }
+                        onCheckedChange = { viewModel.setMinimizeToTray(it) }
                     )
                     RowDivider()
                     ToggleRow(
                         label           = "Caché de imágenes en disco",
                         icon            = Icons.Rounded.Image,
                         checked         = cacheImages,
-                        onCheckedChange = { AppPreferences.setCacheImages(it) }
+                        onCheckedChange = { viewModel.setCacheImages(it) }
                     )
                     RowDivider()
                     InfoRow(

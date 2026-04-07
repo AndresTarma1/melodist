@@ -3,12 +3,13 @@ package com.example.melodist.ui.themes
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
-import com.example.melodist.data.AppPreferences
-import com.example.melodist.data.ThemeMode
+import com.example.melodist.data.repository.ThemeMode
 import com.example.melodist.ui.components.artwork.ArtworkColors
 import com.materialkolor.DynamicMaterialTheme
 import com.materialkolor.PaletteStyle
 import com.materialkolor.rememberDynamicMaterialThemeState
+import org.koin.compose.koinInject
+import com.example.melodist.data.repository.UserPreferencesRepository
 
 val Primary = Color(0xFF687988)
 val Secondary = Color(0xFF72787E)
@@ -19,15 +20,16 @@ val Secondary = Color(0xFF72787E)
 @Composable
 fun MelodistTheme(
     artworkColors: ArtworkColors? = null,
+    userPreferences: UserPreferencesRepository,
     content: @Composable () -> Unit,
 ) {
-    val themeMode by AppPreferences.themeMode.collectAsState()
-    val dynamicEnabled by AppPreferences.dynamicColorFromArtwork.collectAsState()
+    val themeMode by userPreferences.themeMode.collectAsState(ThemeMode.SYSTEM)
+    val dynamicEnabled by userPreferences.dynamicColorFromArtwork.collectAsState(false)
 
     val isDarkTheme = when (themeMode) {
         ThemeMode.DARK -> true
         ThemeMode.LIGHT -> false
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        else -> isSystemInDarkTheme()
     }
 
     // Usar colores de la carátula si el color dinámico está habilitado, 
@@ -57,4 +59,3 @@ fun MelodistTheme(
         content = content,
     )
 }
-

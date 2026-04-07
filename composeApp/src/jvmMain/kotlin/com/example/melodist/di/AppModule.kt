@@ -6,13 +6,6 @@ import com.example.melodist.data.local.DatabaseDriverFactory
 import com.example.melodist.data.remote.ApiService
 import com.example.melodist.data.repository.MusicRepository
 import com.example.melodist.data.repository.SearchRepository
-import com.example.melodist.db.DatabaseDao
-import com.example.melodist.db.MelodistDatabase
-import com.example.melodist.db.MusicDatabase
-import com.example.melodist.player.AudioStreamResolver
-import com.example.melodist.player.DownloadService
-import com.example.melodist.player.PlayerService
-import com.example.melodist.player.WindowsMediaSession
 import com.example.melodist.viewmodels.AccountViewModel
 import com.example.melodist.viewmodels.AlbumViewModel
 import com.example.melodist.viewmodels.ArtistViewModel
@@ -22,6 +15,15 @@ import com.example.melodist.viewmodels.LibraryViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.example.melodist.viewmodels.PlaylistViewModel
 import com.example.melodist.viewmodels.SearchViewModel
+import com.example.melodist.viewmodels.SettingsViewModel
+import com.example.melodist.data.repository.UserPreferencesRepository
+import com.example.melodist.db.DatabaseDao
+import com.example.melodist.db.MelodistDatabase
+import com.example.melodist.db.MusicDatabase
+import com.example.melodist.player.AudioStreamResolver
+import com.example.melodist.player.DownloadService
+import com.example.melodist.player.PlayerService
+import com.example.melodist.player.WindowsMediaSession
 import org.koin.dsl.module
 import java.util.logging.Logger
 
@@ -56,4 +58,5 @@ val appModule = module {
     factory { AlbumViewModel(get()) }
     factory { PlaylistViewModel(get()) }
     factory { ArtistViewModel(get()) }
+    factory { SettingsViewModel(get()) }
 }

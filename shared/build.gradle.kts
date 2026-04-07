@@ -27,6 +27,12 @@ kotlin {
             implementation(libs.ktor.serialization.json)
 
             api(libs.sqldelight.coroutines)
+
+            // DataStore library
+            api("androidx.datastore:datastore:1.2.1")
+            // The Preferences DataStore library
+            api("androidx.datastore:datastore-preferences:1.2.1")
+
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -48,6 +54,3 @@ sqldelight {
         }
     }
 }
-
-
-

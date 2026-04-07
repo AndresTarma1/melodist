@@ -2,6 +2,7 @@ package com.example.melodist
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MusicNote
@@ -22,9 +23,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.ApplicationScope
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
+import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.rememberWindowState
-import com.example.melodist.data.AppPreferences
 import com.example.melodist.data.ThemeMode
+import com.example.melodist.data.repository.UserPreferencesRepository
 import com.example.melodist.navigation.NavigationDesktop
 import com.example.melodist.navigation.RootComponent
 import com.example.melodist.player.PlaybackState
@@ -37,8 +39,8 @@ import com.example.melodist.viewmodels.DownloadViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.kdroid.composetray.tray.api.Tray
 import dev.hydraulic.conveyor.control.SoftwareUpdateController
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import melodist.composeapp.generated.resources.Res
 import melodist.composeapp.generated.resources.music_icon
@@ -68,8 +70,13 @@ fun ApplicationScope.App(
     rootComponent: RootComponent,
     playerViewModel: PlayerViewModel,
     downloadViewModel: DownloadViewModel,
+    userPreferences: UserPreferencesRepository,
     onExit: () -> Unit,
+    windowState: WindowState,
 ) {
+
+    val scope = rememberCoroutineScope()
+
     var updateInfo by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     LaunchedEffect(Unit) {
@@ -91,26 +98,25 @@ fun ApplicationScope.App(
         }
     }
 
-    val windowState = rememberWindowState(
-        placement = if (AppPreferences.windowMaximized) WindowPlacement.Maximized else WindowPlacement.Floating,
-        width = AppPreferences.windowWidth.dp,
-        height = AppPreferences.windowHeight.dp,
-        position = WindowPosition(Alignment.Center),
-    )
+
 
     var isVisible by remember { mutableStateOf(false) }
-    val minimizeToTray by AppPreferences.minimizeToTray.collectAsState()
+    val minimizeToTray by remember { userPreferences.minimizeToTray }.collectAsState(false)
 
-    val handleExit = {
-        if (windowState.placement == WindowPlacement.Maximized) {
-            AppPreferences.windowMaximized = true
-        } else {
-            AppPreferences.windowMaximized = false
-            AppPreferences.windowWidth = windowState.size.width.value.toInt()
-            AppPreferences.windowHeight = windowState.size.height.value.toInt()
+
+
+    fun handleExit() {
+        scope.launch {
+            if(windowState.placement == WindowPlacement.Maximized) {
+                userPreferences.setWindowMaximized(true)
+            }else {
+                userPreferences.setWindowMaximized(false)
+                userPreferences.setWindowSize(windowState.size.width.value.toInt(), windowState.size.height.value.toInt())
+            }
+            onExit()
         }
-        onExit()
     }
+
 
     // ── Tray ─────────────────────────────────────────────────────────────────
     if (!isVisible || minimizeToTray) {
@@ -126,22 +132,22 @@ fun ApplicationScope.App(
             Item(label = "Anterior", onClick = { playerViewModel.previous() })
             Divider()
             Item(label = "Abrir Melodist", onClick = { isVisible = true })
-            Item(label = "Salir", onClick = handleExit)
+            Item(label = "Salir", onClick = { handleExit() })
         }
     }
 
     // ── Theme ─────────────────────────────────────────────────────────────────
     val playerState by playerViewModel.uiState.collectAsState()
     val artworkColors = rememberArtworkColors(playerState.currentSong?.thumbnail)
-    val themeMode by AppPreferences.themeMode.collectAsState()
+    val themeMode by remember { userPreferences.themeMode}.collectAsState(ThemeMode.SYSTEM)
     val isDark = when (themeMode) {
         ThemeMode.DARK -> true
         ThemeMode.LIGHT -> false
-        ThemeMode.SYSTEM -> androidx.compose.foundation.isSystemInDarkTheme()
+        else -> { isSystemInDarkTheme()}
     }
 
     // ── Window ────────────────────────────────────────────────────────────────
-    MelodistTheme(artworkColors = artworkColors) {
+    MelodistTheme(artworkColors = artworkColors, userPreferences = userPreferences) {
         val surfaceColor = MaterialTheme.colorScheme.surface
 
         val titleBarStyle = if (isDark)
@@ -212,7 +218,7 @@ fun ApplicationScope.App(
 
                     window.minimumSize = Dimension(1024, 600)
                     DisposableEffect(Unit) {
-                        val startMaximized = AppPreferences.windowMaximized
+                        val startMaximized = windowState.placement == WindowPlacement.Maximized
                         val awtColor = Color(
                             surfaceColor.toArgb()
                         )

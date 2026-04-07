@@ -1,17 +1,26 @@
 package com.example.melodist
 
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.example.melodist.data.AppDirs
 import com.example.melodist.data.account.AccountManager
+import com.example.melodist.data.repository.UserPreferencesRepository
 import com.example.melodist.di.appModule
+import com.example.melodist.di.dataStoreModule
 import com.example.melodist.navigation.RootComponent
 import com.example.melodist.player.PlayerService
 import com.example.melodist.player.WindowsMediaSession
 import com.example.melodist.viewmodels.DownloadViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import java.io.File
@@ -21,9 +30,6 @@ import java.time.LocalDateTime
 
 fun main() {
 
-    // Es mejor el Direct3D que el OpenGL, pero en algunos casos puede causar problemas de renderizado, así que se puede forzar el uso de OpenGL si es necesario.
-    //System.setProperty("skiko.renderApi", "OPENGL")
-
     setupEnvironments()
 
     Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
@@ -31,7 +37,7 @@ fun main() {
     }
 
     val koinApp = try {
-        startKoin { modules(appModule) }.also {
+        startKoin { modules(appModule, dataStoreModule) }.also {
             runCatching { it.koin.get<PlayerService>().init() }
                 .onFailure { error -> logStartupError("Error inicializando PlayerService", error) }
         }
@@ -65,7 +71,34 @@ fun main() {
         setPositionProvider { playerViewModel.progressState.value.positionMs }
     }
 
+    val userPreferencesRepository = try {
+        koinApp.koin.get<UserPreferencesRepository>()
+    } catch (e: Throwable) {
+        logStartupError("Error creando UserPreferencesRepository", e)
+        throw e
+    }
+
+    val initialWidth: Int
+    val initialHeight: Int
+    val initialMaximized: Boolean
+
+    runBlocking {
+        initialWidth = userPreferencesRepository.windowWidth.first()
+        initialHeight = userPreferencesRepository.windowHeight.first()
+        initialMaximized = userPreferencesRepository.windowMaximized.first()
+    }
+
+
+
     application {
+        val windowState = rememberWindowState(
+            placement = if (initialMaximized) WindowPlacement.Maximized else WindowPlacement.Floating,
+            width = initialWidth.dp,
+            height = initialHeight.dp,
+            position = WindowPosition(Alignment.Center),
+        )
+
+
         val lifecycle = remember { LifecycleRegistry() }
         val rootComponent = remember {
             RootComponent(
@@ -86,6 +119,8 @@ fun main() {
             rootComponent = rootComponent,
             playerViewModel = playerViewModel,
             downloadViewModel = downloadViewModel,
+            userPreferences = userPreferencesRepository,
+            windowState = windowState,
             onExit = ::doExit
         )
     }
