@@ -79,7 +79,25 @@ import com.metrolist.innertube.models.ArtistItem
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
+import org.jetbrains.jewel.foundation.modifier.onHover
 
+data class SearchScreenState(
+    val uiState: SearchState = SearchState.Idle,
+    val query: String = "",
+    val suggestions: List<String> = emptyList(),
+    val filter: YouTube.SearchFilter? = null,
+    val searchHistory: List<SearchHistoryEntry> = emptyList(),
+)
+
+data class SearchActions(
+    val onQueryChange: (String) -> Unit,
+    val onSearch: () -> Unit,
+    val onFilterChange: (YouTube.SearchFilter?) -> Unit,
+    val onLoadMore: () -> Unit,
+    val onNavigate: (Route) -> Unit,
+    val onDeleteHistoryEntry: (String) -> Unit,
+    val onClearHistory: () -> Unit
+)
 
 @Composable
 fun SearchScreenRoute(
@@ -95,37 +113,37 @@ fun SearchScreenRoute(
     val filter by viewModel.filter.collectAsState()
     val searchHistory by viewModel.searchHistory.collectAsState()
 
-    SearchScreen(
+    val state = SearchScreenState(
         uiState = uiState,
         query = query,
         suggestions = suggestions,
         filter = filter,
-        searchHistory = searchHistory,
-        onQueryChange = { viewModel.onQueryChange(it) },
-        onSearch = { viewModel.search() },
-        onFilterChange = { viewModel.onFilterChange(it) },
-        onLoadMore = { viewModel.searchContinuation() },
-        onNavigate = onNavigate,
-        onDeleteHistoryEntry = { viewModel.deleteHistoryEntry(it) },
-        onClearHistory = { viewModel.clearHistory() },
+        searchHistory = searchHistory
+    )
+
+    val actions = remember(viewModel, onNavigate) {
+        SearchActions(
+            onQueryChange = { viewModel.onQueryChange(it) },
+            onSearch = { viewModel.search() },
+            onFilterChange = { viewModel.onFilterChange(it) },
+            onLoadMore = { viewModel.searchContinuation() },
+            onNavigate = onNavigate,
+            onDeleteHistoryEntry = { viewModel.deleteHistoryEntry(it) },
+            onClearHistory = { viewModel.clearHistory() }
+        )
+    }
+
+    SearchScreen(
+        state = state,
+        actions = actions,
         playerViewModel = playerViewModel
     )
 }
 
 @Composable
 fun SearchScreen(
-    uiState: SearchState,
-    query: String,
-    suggestions: List<String>,
-    filter: YouTube.SearchFilter?,
-    searchHistory: List<SearchHistoryEntry>,
-    onQueryChange: (String) -> Unit,
-    onSearch: () -> Unit,
-    onFilterChange: (YouTube.SearchFilter?) -> Unit,
-    onLoadMore: () -> Unit,
-    onNavigate: (Route) -> Unit,
-    onDeleteHistoryEntry: (String) -> Unit,
-    onClearHistory: () -> Unit,
+    state: SearchScreenState,
+    actions: SearchActions,
     playerViewModel: PlayerViewModel? = null
 ) {
     var active by remember { mutableStateOf(false) }
@@ -138,23 +156,23 @@ fun SearchScreen(
                 .fillMaxSize()
         ) {
             SearchSection(
-                query = query,
+                query = state.query,
                 active = active,
-                suggestions = suggestions,
-                searchHistory = searchHistory,
+                suggestions = state.suggestions,
+                searchHistory = state.searchHistory,
                 onActiveChange = { active = it },
-                onQueryChange = onQueryChange,
+                onQueryChange = actions.onQueryChange,
                 onSearch = {
-                    onSearch()
+                    actions.onSearch()
                     active = false
                 },
-                onDeleteHistoryEntry = onDeleteHistoryEntry,
-                onClearHistory = onClearHistory
+                onDeleteHistoryEntry = actions.onDeleteHistoryEntry,
+                onClearHistory = actions.onClearHistory
             )
 
             ResultsList(
-                uiState = uiState,
-                filter = filter,
+                uiState = state.uiState,
+                filter = state.filter,
                 onItemClick = { item ->
                     when (item) {
 
@@ -167,12 +185,12 @@ fun SearchScreen(
                                 is PlaylistItem -> Route.Playlist(item.id)
                                 is ArtistItem -> Route.Artist(item.id)
                             }
-                            onNavigate(route)
+                            actions.onNavigate(route)
                         }
                     }
                 },
-                onFilterChange = onFilterChange,
-                onLoadMore = onLoadMore,
+                onFilterChange = actions.onFilterChange,
+                onLoadMore = actions.onLoadMore,
             )
         }
     }
@@ -197,7 +215,7 @@ fun SearchSection(
             .fillMaxWidth()
             .background(Color.Transparent)
             .padding(horizontal = if (active) 0.dp else 16.dp)
-            .animateContentSize(), // Suaviza la expansión
+            .animateContentSize(),
         inputField = {
             SearchBarDefaults.InputField(
                 query = query,
@@ -232,7 +250,6 @@ fun SearchSection(
         expanded = active,
         onExpandedChange = onActiveChange,
     ) {
-        // Usamos LazyColumn para mejor rendimiento que Column + verticalScroll
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(16.dp),
@@ -328,9 +345,14 @@ private fun SectionHeader(title: String) {
 
 @Composable
 private fun SuggestionListItem(suggestion: String, onClick: () -> Unit) {
+    var isHover by remember { mutableStateOf(false) }
+    val bgColor = if(isHover) MaterialTheme.colorScheme.onSurface.copy(0.12f) else Color.Transparent
     ListItem(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
+            .background(bgColor)
+            .onHover{ isHover = it }
+            .pointerHoverIcon(PointerIcon.Hand)
             .clickable(onClick = onClick),
         headlineContent = {
             Text(
@@ -362,10 +384,17 @@ private fun SuggestionListItem(suggestion: String, onClick: () -> Unit) {
 
 @Composable
 private fun HistoryListItem(query: String, onClick: () -> Unit, onDelete: () -> Unit) {
+
+    var isHovered by remember { mutableStateOf(false) }
+    val bgColor = if(isHovered) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f) else Color.Transparent
+
     ListItem(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
+            .pointerHoverIcon(PointerIcon.Hand)
+            .onHover { isHovered = it }
+            .clickable(onClick = onClick)
+            .background(bgColor),
         headlineContent = {
             Text(
                 text = query,
@@ -523,7 +552,7 @@ fun ResultsList(
                 Box {
 
                     LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(end = 16.dp),
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                         state = scrollable
                     ) {
@@ -588,11 +617,10 @@ fun EmptyStateView(icon: ImageVector, message: String) {
 @OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
-    // 1. Definimos propiedades dinámicas basadas en el tipo
     val shape = when (item) {
-        is ArtistItem -> CircleShape // Los artistas siempre son circulares
-        is PlaylistItem -> RoundedCornerShape(4.dp) // Las playlists suelen ser más "cuadradas"
-        else -> RoundedCornerShape(8.dp) // Canciones y álbumes con bordes suavizados
+        is ArtistItem -> CircleShape
+        is PlaylistItem -> RoundedCornerShape(4.dp)
+        else -> RoundedCornerShape(8.dp)
     }
 
     val imageSize = when (item) {
@@ -600,7 +628,6 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
         is ArtistItem -> 56.dp
         else -> 52.dp
     }
-
 
 
     var showMenu by remember { mutableStateOf(false) }
@@ -626,74 +653,74 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
                 )
                 .padding(vertical = 2.dp), // Espaciado sutil entre items
             headlineContent = {
-            Text(
-                text = item.title,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
-            )
-        },
-        supportingContent = {
-            // 2. Construimos un subtítulo rico en información
-            val subtitle = when (item) {
-                is SongItem -> {
-                    val artists = item.artists.joinToString { it.name }
-                    val album = item.album?.name?.let { " • $it" } ?: ""
-                    "$artists$album"
-                }
+                Text(
+                    text = item.title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+                )
+            },
+            supportingContent = {
+                // 2. Construimos un subtítulo rico en información
+                val subtitle = when (item) {
+                    is SongItem -> {
+                        val artists = item.artists.joinToString { it.name }
+                        val album = item.album?.name?.let { " • $it" } ?: ""
+                        "$artists$album"
+                    }
 
-                is AlbumItem -> {
-                    val artists = item.artists?.joinToString { it.name } ?: "Álbum"
-                    "Álbum • $artists"
-                }
+                    is AlbumItem -> {
+                        val artists = item.artists?.joinToString { it.name } ?: "Álbum"
+                        "Álbum • $artists"
+                    }
 
-                is ArtistItem -> "Artista"
-                is PlaylistItem -> {
-                    val author = item.author?.name?.let { " • $it" } ?: ""
-                    "Playlist$author"
+                    is ArtistItem -> "Artista"
+                    is PlaylistItem -> {
+                        val author = item.author?.name?.let { " • $it" } ?: ""
+                        "Playlist$author"
+                    }
                 }
-            }
-            Text(
-                text = subtitle,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        leadingContent = {
-            // 3. Contenedor de imagen dinámico
-            MelodistImage(
-                url = item.thumbnail,
-                contentDescription = item.title,
-                modifier = Modifier.size(imageSize),
-                shape = shape,
-                placeholderType = when (item) {
-                    is ArtistItem -> PlaceholderType.ARTIST
-                    is AlbumItem -> PlaceholderType.ALBUM
-                    is PlaylistItem -> PlaceholderType.PLAYLIST
-                    else -> PlaceholderType.SONG
-                },
-                contentScale = ContentScale.Crop,
-                iconSize = if (item is PlaylistItem) 32.dp else 24.dp
-            )
-        },
-        trailingContent = {
-            if (item is SongItem) {
-                IconButton(onClick = { 
-                    menuOffset = DpOffset.Zero
-                    showMenu = true 
-                }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Más opciones",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                Text(
+                    text = subtitle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            },
+            leadingContent = {
+                // 3. Contenedor de imagen dinámico
+                MelodistImage(
+                    url = item.thumbnail,
+                    contentDescription = item.title,
+                    modifier = Modifier.size(imageSize),
+                    shape = shape,
+                    placeholderType = when (item) {
+                        is ArtistItem -> PlaceholderType.ARTIST
+                        is AlbumItem -> PlaceholderType.ALBUM
+                        is PlaylistItem -> PlaceholderType.PLAYLIST
+                        else -> PlaceholderType.SONG
+                    },
+                    contentScale = ContentScale.Crop,
+                    iconSize = if (item is PlaylistItem) 32.dp else 24.dp
+                )
+            },
+            trailingContent = {
+                if (item is SongItem) {
+                    IconButton(onClick = {
+                        menuOffset = DpOffset.Zero
+                        showMenu = true
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Más opciones",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-            }
-        },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-    )
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+        )
 
     if (item is SongItem) {
         SongContextMenu(
@@ -705,40 +732,3 @@ fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
     }
     }
 }
-
-//@Composable
-//fun SearchResultItem(item: YTItem, onItemClick: (YTItem) -> Unit) {
-//    ListItem(
-//        modifier = Modifier
-//            .padding(horizontal = 8.dp)
-//            .clip(RoundedCornerShape(12.dp))
-//            .clickable { onItemClick(item) },
-//        headlineContent = {
-//            Text(item.title, maxLines = 1, fontWeight = FontWeight.SemiBold)
-//        },
-//        supportingContent = {
-//            val subtitle = when (item) {
-//                is SongItem -> item.artists.joinToString { it.name }
-//                is AlbumItem -> item.artists?.joinToString { it.name } ?: "Álbum"
-//                is ArtistItem -> "Artista"
-//                is PlaylistItem -> "Playlist"
-//            }
-//            Text(subtitle, maxLines = 1)
-//        },
-//        leadingContent = {
-//            Surface(
-//                shape = if (item is ArtistItem) RoundedCornerShape(50.dp) else RoundedCornerShape(8.dp),
-//                modifier = Modifier.size(52.dp),
-//            ) {
-//                Box(modifier = Modifier.fillMaxSize().background(Color.Gray.copy(alpha = 0.3f))) {
-//                    Icon(
-//                        Icons.Default.MusicNote, contentDescription = null, modifier =
-//
-//                            Modifier.size(24.dp).align(Alignment.Center)
-//                    )
-//                }
-//            }
-//        },
-//        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
-//    )
-//}

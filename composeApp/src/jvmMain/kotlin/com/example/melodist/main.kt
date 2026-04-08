@@ -102,9 +102,7 @@ fun main() {
         val lifecycle = remember { LifecycleRegistry() }
         val rootComponent = remember {
             RootComponent(
-                componentContext = DefaultComponentContext(lifecycle),
-                musicRepository = koinApp.koin.get(),
-                searchRepository = koinApp.koin.get(),
+                componentContext = DefaultComponentContext(lifecycle)
             )
         }
 

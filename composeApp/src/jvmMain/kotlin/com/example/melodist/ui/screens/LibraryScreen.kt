@@ -20,8 +20,10 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -29,6 +31,7 @@ import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,6 +59,25 @@ import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.ui.helpers.contextMenuArea
 import com.example.melodist.ui.screens.shared.formatDuration
 
+data class LibraryScreenState(
+    val selectedTab: LibraryTab = LibraryTab.SONGS,
+    val songs: List<SongItem> = emptyList(),
+    val albums: List<AlbumItem> = emptyList(),
+    val artists: List<ArtistItem> = emptyList(),
+    val playlists: List<PlaylistItem> = emptyList(),
+    val ytmState: YtmLibraryState = YtmLibraryState.Idle
+)
+
+data class LibraryActions(
+    val onTabSelected: (LibraryTab) -> Unit,
+    val onNavigate: (Route) -> Unit,
+    val onRemoveSong: (String) -> Unit,
+    val onRemoveAlbum: (String) -> Unit,
+    val onRemoveArtist: (String) -> Unit,
+    val onRemovePlaylist: (String) -> Unit,
+    val onRefreshYtm: () -> Unit
+)
+
 // ────────────────────────────────────────────────────────
 // Route wrapper
 // ────────────────────────────────────────────────────────
@@ -69,26 +91,36 @@ fun LibraryScreenRoute(
     val playerViewModel = LocalPlayerViewModel.current
 
     val selectedTab by viewModel.selectedTab.collectAsState()
-    val songs by viewModel.songs.collectAsState()
-    val albums by viewModel.albums.collectAsState()
-    val artists by viewModel.artists.collectAsState()
-    val playlists by viewModel.playlists.collectAsState()
+    val songs by viewModel.savedSongs.collectAsState()
+    val albums by viewModel.savedAlbums.collectAsState()
+    val artists by viewModel.savedArtists.collectAsState()
+    val playlists by viewModel.savedPlaylists.collectAsState()
     val ytmState by viewModel.ytmState.collectAsState()
 
-    LibraryScreen(
+    val state = LibraryScreenState(
         selectedTab = selectedTab,
         songs = songs,
         albums = albums,
         artists = artists,
         playlists = playlists,
-        ytmState = ytmState,
-        onTabSelected = { viewModel.selectTab(it) },
-        onNavigate = onNavigate,
-        onRemoveSong = { viewModel.removeSong(it) },
-        onRemoveAlbum = { viewModel.removeAlbum(it) },
-        onRemoveArtist = { viewModel.removeArtist(it) },
-        onRemovePlaylist = { viewModel.removePlaylist(it) },
-        onRefreshYtm = { viewModel.refreshYtmLibrary() },
+        ytmState = ytmState
+    )
+
+    val actions = remember(viewModel, onNavigate) {
+        LibraryActions(
+            onTabSelected = { viewModel.selectTab(it) },
+            onNavigate = onNavigate,
+            onRemoveSong = { viewModel.removeSong(it) },
+            onRemoveAlbum = { viewModel.removeAlbum(it) },
+            onRemoveArtist = { viewModel.removeArtist(it) },
+            onRemovePlaylist = { viewModel.removePlaylist(it) },
+            onRefreshYtm = { viewModel.refreshYtmLibrary() }
+        )
+    }
+
+    LibraryScreen(
+        state = state,
+        actions = actions,
         playerViewModel = playerViewModel
     )
 }
@@ -100,19 +132,8 @@ fun LibraryScreenRoute(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
-    selectedTab: LibraryTab,
-    songs: List<SongItem>,
-    albums: List<AlbumItem>,
-    artists: List<ArtistItem>,
-    playlists: List<PlaylistItem>,
-    ytmState: YtmLibraryState = YtmLibraryState.Idle,
-    onTabSelected: (LibraryTab) -> Unit,
-    onNavigate: (Route) -> Unit,
-    onRemoveSong: (String) -> Unit,
-    onRemoveAlbum: (String) -> Unit,
-    onRemoveArtist: (String) -> Unit,
-    onRemovePlaylist: (String) -> Unit,
-    onRefreshYtm: () -> Unit = {},
+    state: LibraryScreenState,
+    actions: LibraryActions,
     playerViewModel: PlayerViewModel? = null
 ) {
     Scaffold(
@@ -128,12 +149,12 @@ fun LibraryScreen(
                 },
                 actions = {
                     // Mostrar botón refresh de YTM solo cuando hay sesión
-                    if (ytmState !is YtmLibraryState.Idle) {
+                    if (state.ytmState !is YtmLibraryState.Idle) {
                         IconButton(
-                            onClick = onRefreshYtm,
-                            enabled = ytmState !is YtmLibraryState.Loading
+                            onClick = actions.onRefreshYtm,
+                            enabled = state.ytmState !is YtmLibraryState.Loading
                         ) {
-                            if (ytmState is YtmLibraryState.Loading) {
+                            if (state.ytmState is YtmLibraryState.Loading) {
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(20.dp),
                                     strokeWidth = 2.dp
@@ -158,42 +179,42 @@ fun LibraryScreen(
                 .padding(innerPadding)
         ) {
             // ── Tab Row ──
-            LibraryTabRow(selectedTab, onTabSelected)
+            LibraryTabRow(state.selectedTab, actions.onTabSelected)
 
             Spacer(Modifier.height(8.dp))
 
             // ── Content ──
-            when (selectedTab) {
+            when (state.selectedTab) {
                 LibraryTab.SONGS -> SongsTab(
-                    songs = songs,
-                    ytmSongs = if (ytmState is YtmLibraryState.Success) ytmState.likedSongs else emptyList(),
-                    isLoadingYtm = ytmState is YtmLibraryState.Loading,
-                    onRemove = onRemoveSong,
+                    songs = state.songs,
+                    ytmSongs = if (state.ytmState is YtmLibraryState.Success) state.ytmState.likedSongs else emptyList(),
+                    isLoadingYtm = state.ytmState is YtmLibraryState.Loading,
+                    onRemove = actions.onRemoveSong,
                     playerViewModel = playerViewModel
                 )
                 LibraryTab.ALBUMS -> AlbumsTab(
-                    albums = albums,
-                    ytmAlbums = if (ytmState is YtmLibraryState.Success) ytmState.albums else emptyList(),
-                    isLoadingYtm = ytmState is YtmLibraryState.Loading,
-                    onNavigate = onNavigate,
-                    onRemove = onRemoveAlbum
+                    albums = state.albums,
+                    ytmAlbums = if (state.ytmState is YtmLibraryState.Success) state.ytmState.albums else emptyList(),
+                    isLoadingYtm = state.ytmState is YtmLibraryState.Loading,
+                    onNavigate = actions.onNavigate,
+                    onRemove = actions.onRemoveAlbum
                 )
                 LibraryTab.ARTISTS -> ArtistsTab(
-                    artists = artists,
-                    ytmArtists = if (ytmState is YtmLibraryState.Success) ytmState.artists else emptyList(),
-                    isLoadingYtm = ytmState is YtmLibraryState.Loading,
-                    onNavigate = onNavigate,
-                    onRemove = onRemoveArtist
+                    artists = state.artists,
+                    ytmArtists = if (state.ytmState is YtmLibraryState.Success) state.ytmState.artists else emptyList(),
+                    isLoadingYtm = state.ytmState is YtmLibraryState.Loading,
+                    onNavigate = actions.onNavigate,
+                    onRemove = actions.onRemoveArtist
                 )
                 LibraryTab.PLAYLISTS -> PlaylistsTab(
-                    playlists = playlists,
-                    ytmPlaylists = if (ytmState is YtmLibraryState.Success) ytmState.playlists else emptyList(),
-                    isLoadingYtm = ytmState is YtmLibraryState.Loading,
-                    onNavigate = onNavigate,
-                    onRemove = onRemovePlaylist
+                    playlists = state.playlists,
+                    ytmPlaylists = if (state.ytmState is YtmLibraryState.Success) state.ytmState.playlists else emptyList(),
+                    isLoadingYtm = state.ytmState is YtmLibraryState.Loading,
+                    onNavigate = actions.onNavigate,
+                    onRemove = actions.onRemovePlaylist
                 )
                 LibraryTab.DOWNLOADS -> DownloadsTab(
-                    onNavigate = onNavigate,
+                    onNavigate = actions.onNavigate,
                     playerViewModel = playerViewModel
                 )
             }
@@ -415,12 +436,12 @@ private fun SongsTab(
         }
         AppVerticalScrollbar(
             state = listState,
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 4.dp, horizontal = 2.dp)
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(12.dp)
         )
     }
 }
 
-@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun LibrarySongItem(
     song: SongItem,
@@ -433,7 +454,7 @@ private fun LibrarySongItem(
 
     var isHovered by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
-    var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
+    var menuOffset by remember { mutableStateOf(DpOffset.Unspecified) }
 
     Box {
         ListItem(
@@ -480,7 +501,16 @@ private fun LibrarySongItem(
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(4.dp))
                     }
-                    IconButton(onClick = { showMenu = true }) {
+                    IconButton(modifier = Modifier.contextMenuArea(
+                        enabled = true,
+                        onHoverChange = { isHovered = it },
+                        onMenuAction = { offset ->
+                            menuOffset = offset
+                            showMenu = true
+                        }
+                    ),onClick = {
+                        showMenu = true
+                    }) {
                         Icon(Icons.Default.MoreVert, "Opciones", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -493,7 +523,8 @@ private fun LibrarySongItem(
             expanded = showMenu,
             onDismiss = { showMenu = false },
             song = song,
-            onRemoveFromLibrary = if (isRemovable) onRemove else null
+            onRemoveFromLibrary = if (isRemovable) onRemove else null,
+            offset = menuOffset
         )
     }
 }

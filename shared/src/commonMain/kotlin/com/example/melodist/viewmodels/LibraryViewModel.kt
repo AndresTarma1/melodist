@@ -2,7 +2,16 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.melodist.data.repository.MusicRepository
+import com.example.melodist.data.remote.ApiService
+import com.example.melodist.data.repository.AlbumRepository
+import com.example.melodist.data.repository.ArtistRepository
+import com.example.melodist.data.repository.PlaylistRepository
+import com.example.melodist.data.repository.SongRepository
+import com.example.melodist.data.repository.dbSongToSongItem
+import com.example.melodist.data.repository.savedAlbumToAlbumItem
+import com.example.melodist.data.repository.savedArtistToArtistItem
+import com.example.melodist.data.repository.savedPlaylistToPlaylistItem
+import com.example.melodist.data.repository.savedSongToSongItem
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.AlbumItem
 import com.metrolist.innertube.models.Artist
@@ -38,7 +47,11 @@ sealed class YtmLibraryState {
 }
 
 class LibraryViewModel(
-    private val repository: MusicRepository,
+    private val apiService: ApiService,
+    private val albumRepository: AlbumRepository,
+    private val artistRepository: ArtistRepository,
+    private val songRepository: SongRepository,
+    private val playlistRepository: PlaylistRepository,
     loginState: StateFlow<Boolean>? = null
 ) : ViewModel() {
 
@@ -47,20 +60,16 @@ class LibraryViewModel(
 
     // ── Local DB ────────────────────────────────────────────
 
-    val songs: StateFlow<List<SongItem>> = repository.getSavedSongs()
-        .map { list -> list.map { repository.savedSongToSongItem(it) } }
+    val savedSongs = songRepository.getSavedSongs().map { it.map(::savedSongToSongItem) }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    val albums: StateFlow<List<AlbumItem>> = repository.getSavedAlbums()
-        .map { list -> list.map { repository.savedAlbumToAlbumItem(it) } }
+    val savedAlbums = albumRepository.getSavedAlbums().map { it.map(::savedAlbumToAlbumItem) }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    val artists: StateFlow<List<ArtistItem>> = repository.getSavedArtists()
-        .map { list -> list.map { repository.savedArtistToArtistItem(it) } }
+    val savedArtists = artistRepository.getSavedArtists().map { it.map(::savedArtistToArtistItem) }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
-    val playlists: StateFlow<List<PlaylistItem>> = repository.getSavedPlaylists()
-        .map { list -> list.map { repository.savedPlaylistToPlaylistItem(it) } }
+    val savedPlaylists = playlistRepository.getSavedPlaylists().map { it.map(::savedPlaylistToPlaylistItem) }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     // ── Remote YTM (cuenta) ─────────────────────────────────
@@ -118,10 +127,10 @@ class LibraryViewModel(
 
     fun selectTab(tab: LibraryTab) { _selectedTab.value = tab }
 
-    fun removeSong(id: String) { viewModelScope.launch { repository.removeSong(id) } }
-    fun removeAlbum(browseId: String) { viewModelScope.launch { repository.removeAlbum(browseId) } }
-    fun removeArtist(id: String) { viewModelScope.launch { repository.removeArtist(id) } }
-    fun removePlaylist(id: String) { viewModelScope.launch { repository.removePlaylist(id) } }
+    fun removeSong(id: String) { viewModelScope.launch { songRepository.removeSong(id) } }
+    fun removeAlbum(browseId: String) { viewModelScope.launch { albumRepository.removeAlbum(browseId) } }
+    fun removeArtist(id: String) { viewModelScope.launch { artistRepository.removeArtist(id) } }
+    fun removePlaylist(id: String) { viewModelScope.launch { playlistRepository.removePlaylist(id) } }
 
     /**
      * Creates a new local playlist
@@ -140,7 +149,7 @@ class LibraryViewModel(
                 shuffleEndpoint = null,
                 radioEndpoint = null
             )
-            repository.savePlaylist(playlist)
+            playlistRepository.savePlaylist(playlist)
         }
     }
 

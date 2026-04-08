@@ -2,7 +2,8 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.melodist.data.repository.MusicRepository
+import com.example.melodist.data.remote.ApiService
+import com.example.melodist.data.repository.AlbumRepository
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.pages.AlbumPage
@@ -29,7 +30,8 @@ sealed class AlbumState {
 }
 
 class AlbumViewModel(
-    private val repository: MusicRepository
+    private val apiService: ApiService,
+    private val repository: AlbumRepository
 ) : ViewModel() {
 
     private val log = Logger.getLogger("AlbumViewModel")

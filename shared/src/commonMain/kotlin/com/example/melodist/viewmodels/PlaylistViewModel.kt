@@ -2,7 +2,9 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.melodist.data.repository.MusicRepository
+import com.example.melodist.data.remote.ApiService
+import com.example.melodist.data.repository.PlaylistRepository
+import com.example.melodist.data.repository.SongRepository
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.PlaylistItem
@@ -33,7 +35,9 @@ sealed class PlaylistState {
 }
 
 class PlaylistViewModel(
-    private val repository: MusicRepository,
+    private val apiService: ApiService,
+    private val repository: PlaylistRepository,
+    private val songRepository: SongRepository
 ) : ViewModel() {
 
     private val log = Logger.getLogger("PlaylistViewModel")
@@ -77,13 +81,14 @@ class PlaylistViewModel(
             _continuation.value = null
 
             // Special case: local downloads playlist
-            if (playlistId == "LOCAL_DOWNLOADS") {
-                val downloadedSongs = repository.getDownloadedSongs()
+            if (playlistId == "downloaded_songs") {
+                val downloadedSongs = songRepository.getDownloadedSongs()
                 _songs.value = downloadedSongs
+                _continuation.value = null
                 _uiState.value = PlaylistState.Success(
                     playlistPage = PlaylistPage(
                         playlist = PlaylistItem(
-                            id = "LOCAL_DOWNLOADS",
+                            id = playlistId,
                             title = "Descargas",
                             author = null,
                             songCountText = "${downloadedSongs.size} canciones",

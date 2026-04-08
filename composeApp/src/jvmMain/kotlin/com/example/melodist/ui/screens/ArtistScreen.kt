@@ -1,6 +1,5 @@
 package com.example.melodist.ui.screens
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.items
@@ -30,10 +29,14 @@ import com.example.melodist.navigation.Route
 import com.example.melodist.ui.components.ArtistScreenSkeleton
 import com.example.melodist.ui.components.layout.AppVerticalScrollbar
 import com.example.melodist.ui.components.BlurredImageBackground
+import com.example.melodist.ui.components.DownloadIndicator
 import com.example.melodist.ui.components.layout.HorizontalScrollableRow
 import com.example.melodist.ui.components.MelodistImage
 import com.example.melodist.ui.components.PlaceholderType
+import com.example.melodist.ui.components.SongContextMenu
 import com.example.melodist.ui.helpers.contextMenuArea
+import com.example.melodist.ui.helpers.rememberSongDownloadState
+import com.example.melodist.utils.LocalDownloadViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.ArtistState
 import com.example.melodist.viewmodels.ArtistViewModel
@@ -95,7 +98,13 @@ fun ArtistScreen(
     ) {
         when (uiState) {
             is ArtistState.Loading -> ArtistScreenSkeleton()
-            is ArtistState.Success -> ArtistScreenLayout(uiState.artistPage, onNavigate, isSaved = isSaved, actions = actions)
+            is ArtistState.Success -> ArtistScreenLayout(
+                uiState.artistPage,
+                onNavigate,
+                isSaved = isSaved,
+                actions = actions
+            )
+
             is ArtistState.Error -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(uiState.message, color = MaterialTheme.colorScheme.error)
             }
@@ -260,7 +269,12 @@ private fun ArtistWideLayout(
                                 .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                                 .pointerHoverIcon(if (hasPlayableSongs) PointerIcon.Hand else PointerIcon.Default)
                         ) {
-                            Icon(Icons.Default.Shuffle, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                            Icon(
+                                Icons.Default.Shuffle,
+                                null,
+                                tint = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
                     }
                 }
@@ -270,7 +284,10 @@ private fun ArtistWideLayout(
 
             // Sections
             artistPage.sections.forEach { section ->
-                ArtistSectionRow(section, onNavigate, MaterialTheme.colorScheme.onSurface, MaterialTheme.colorScheme.onSurfaceVariant)
+                ArtistSectionRow(
+                    section,
+                    onNavigate,
+                )
                 Spacer(Modifier.height(24.dp))
             }
 
@@ -294,13 +311,11 @@ private fun ArtistWideLayout(
                     )
                 }
             }
-
-            Spacer(Modifier.height(80.dp))
         }
 
         AppVerticalScrollbar(
             state = scrollState,
-            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 12.dp, horizontal = 4.dp)
+            modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(12.dp)
         )
     }
 }
@@ -310,26 +325,27 @@ private fun ArtistWideLayout(
 private fun ArtistSectionRow(
     section: ArtistSection,
     onNavigate: (Route) -> Unit,
-    onSurfaceColor: Color,
-    onSurfaceVariant: Color
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = section.title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = onSurfaceColor,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
         HorizontalScrollableRow(
             modifier = Modifier.fillMaxWidth(),
-             state = rememberLazyListState(),
-            contentPadding = PaddingValues(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ){
+            state = rememberLazyListState(),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             items(section.items) { item ->
-                ArtistSectionCard(item, onNavigate, onSurfaceColor, onSurfaceVariant)
+                ArtistSectionCard(
+                    item,
+                    onNavigate
+                )
             }
 
         }
@@ -340,28 +356,21 @@ private fun ArtistSectionRow(
 @Composable
 private fun ArtistSectionCard(
     item: YTItem,
-    onNavigate: (Route) -> Unit,
-    onSurfaceColor: Color,
-    onSurfaceVariant: Color
+    onNavigate: (Route) -> Unit
 ) {
     val isArtist = item is ArtistItem
     val cardShape = if (isArtist) CircleShape else RoundedCornerShape(8.dp)
 
     val playerViewModel = LocalPlayerViewModel.current
-    val downloadViewModel = com.example.melodist.utils.LocalDownloadViewModel.current
-    val scope = rememberCoroutineScope()
+    val downloadViewModel = LocalDownloadViewModel.current
 
     var isHovered by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var menuOffset by remember { mutableStateOf(DpOffset.Zero) }
 
-    val elevation by animateColorAsState(
-        if (isHovered) MaterialTheme.colorScheme.surfaceContainerHigh
-        else Color.Transparent
-    )
 
     val downloadState by if (item is SongItem) {
-        com.example.melodist.ui.helpers.rememberSongDownloadState(item.id, downloadViewModel)
+        rememberSongDownloadState(item.id, downloadViewModel)
     } else {
         remember { mutableStateOf(null) }
     }
@@ -371,7 +380,7 @@ private fun ArtistSectionCard(
             modifier = Modifier
                 .width(150.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(elevation)
+                .background(if(isHovered) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent)
                 .clickable {
                     when (item) {
                         is AlbumItem -> onNavigate(Route.Album(item.browseId))
@@ -410,7 +419,7 @@ private fun ArtistSectionCard(
                 )
 
                 if (item is SongItem && downloadState != null) {
-                    com.example.melodist.ui.components.DownloadIndicator(
+                    DownloadIndicator(
                         state = downloadState,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -427,7 +436,7 @@ private fun ArtistSectionCard(
                 text = item.title,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = onSurfaceColor,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = if (isArtist) TextAlign.Center else TextAlign.Start,
@@ -444,7 +453,7 @@ private fun ArtistSectionCard(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = onSurfaceVariant.copy(alpha = 0.6f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = if (isArtist) TextAlign.Center else TextAlign.Start,
@@ -453,7 +462,7 @@ private fun ArtistSectionCard(
         }
 
         if (item is SongItem) {
-            com.example.melodist.ui.components.SongContextMenu(
+            SongContextMenu(
                 expanded = showMenu,
                 onDismiss = { showMenu = false },
                 song = item,

@@ -118,15 +118,15 @@ fun SongContextMenu(
                 is DownloadState.Completed -> StyledMenuItem(
                     "Eliminar descarga",
                     Icons.Default.DeleteOutline,
-                    MaterialTheme.colorScheme.error,
-                    { downloadViewModel.removeDownload(song.id) }
-                )
+                    MaterialTheme.colorScheme.error
+                ) { downloadViewModel.removeDownload(song.id) }
+
                 is DownloadState.Downloading, is DownloadState.Queued -> StyledMenuItem(
                     "Cancelar descarga",
                     Icons.Default.Cancel,
-                    MaterialTheme.colorScheme.error,
-                    { downloadViewModel.cancelDownload(song.id) }
-                )
+                    MaterialTheme.colorScheme.error
+                ) { downloadViewModel.cancelDownload(song.id) }
+
                 else -> StyledMenuItem(
                     "Descargar",
                     Icons.Default.Download,

@@ -3,17 +3,14 @@ package com.example.melodist.navigation
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.decompose.router.stack.*
 import com.arkivanov.decompose.value.Value
-import com.example.melodist.data.account.AccountManager
-import com.example.melodist.data.repository.MusicRepository
-import com.example.melodist.data.repository.SearchRepository
 import com.example.melodist.viewmodels.*
 import kotlinx.serialization.serializer
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.get
 
 class RootComponent(
     componentContext: ComponentContext,
-    private val musicRepository: MusicRepository? = null,
-    private val searchRepository: SearchRepository? = null
-) : ComponentContext by componentContext {
+) : ComponentContext by componentContext, KoinComponent {
 
     private val navigation = StackNavigation<ScreenConfig>()
 
@@ -28,14 +25,14 @@ class RootComponent(
 
     private fun createChild(config: ScreenConfig, componentContext: ComponentContext): Child {
         return when (config) {
-            is ScreenConfig.Home -> Child.Home(HomeComponent(componentContext))
-            is ScreenConfig.Search -> Child.Search(SearchComponent(componentContext, searchRepository))
-            is ScreenConfig.Library -> Child.Library(LibraryComponent(componentContext, musicRepository))
-            is ScreenConfig.Account -> Child.Account(AccountComponent(componentContext))
+            is ScreenConfig.Home -> Child.Home(HomeComponent(componentContext, get()))
+            is ScreenConfig.Search -> Child.Search(SearchComponent(componentContext, get()))
+            is ScreenConfig.Library -> Child.Library(LibraryComponent(componentContext, get()))
+            is ScreenConfig.Account -> Child.Account(AccountComponent(componentContext, get()))
             is ScreenConfig.Settings -> Child.Settings
-            is ScreenConfig.Album -> Child.Album(AlbumComponent(componentContext, config.browseId, musicRepository))
-            is ScreenConfig.Playlist -> Child.Playlist(PlaylistComponent(componentContext, config.playlistId, musicRepository))
-            is ScreenConfig.Artist -> Child.Artist(ArtistComponent(componentContext, config.artistId, musicRepository))
+            is ScreenConfig.Album -> Child.Album(AlbumComponent(componentContext, config.browseId, get()))
+            is ScreenConfig.Playlist -> Child.Playlist(PlaylistComponent(componentContext, config.playlistId, get()))
+            is ScreenConfig.Artist -> Child.Artist(ArtistComponent(componentContext, config.artistId, get()))
         }
     }
 
@@ -71,49 +68,46 @@ class RootComponent(
 // ─── Screen Components ─────────────────────────────────
 // Each component owns its ViewModel so it survives back-stack
 
-class HomeComponent(componentContext: ComponentContext) : ComponentContext by componentContext {
-    val viewModel = HomeViewModel(loginState = AccountManager.loginState)
-}
+class HomeComponent(componentContext: ComponentContext, val viewModel: HomeViewModel) : ComponentContext by componentContext
 
 class SearchComponent(
     componentContext: ComponentContext,
-    searchRepository: SearchRepository?
-) : ComponentContext by componentContext {
-    val viewModel = SearchViewModel(searchRepository!!)
-}
+    val viewModel: SearchViewModel
+) : ComponentContext by componentContext
 
 class LibraryComponent(
     componentContext: ComponentContext,
-    repository: MusicRepository?
-) : ComponentContext by componentContext {
-    val viewModel = LibraryViewModel(repository!!, loginState = AccountManager.loginState)
-}
+    val viewModel: LibraryViewModel
+) : ComponentContext by componentContext
 
 class AlbumComponent(
     componentContext: ComponentContext,
-    val browseId: String,
-    repository: MusicRepository?
+    browseId: String,
+    val viewModel: AlbumViewModel
 ) : ComponentContext by componentContext {
-    val viewModel = AlbumViewModel(repository!!).also { it.loadAlbum(browseId) }
+    init {
+        viewModel.loadAlbum(browseId)
+    }
 }
 
 class PlaylistComponent(
     componentContext: ComponentContext,
-    val playlistId: String,
-    repository: MusicRepository?
+    playlistId: String,
+    val viewModel: PlaylistViewModel
 ) : ComponentContext by componentContext {
-    val viewModel = PlaylistViewModel(repository!!).also { it.loadPlaylist(playlistId) }
+    init {
+        viewModel.loadPlaylist(playlistId)
+    }
 }
 
 class ArtistComponent(
     componentContext: ComponentContext,
-    val artistId: String,
-    repository: MusicRepository?
+    artistId: String,
+    val viewModel: ArtistViewModel
 ) : ComponentContext by componentContext {
-    val viewModel = ArtistViewModel(repository!!).also { it.loadArtist(artistId) }
+    init {
+        viewModel.loadArtist(artistId)
+    }
 }
 
-class AccountComponent(componentContext: ComponentContext) : ComponentContext by componentContext {
-    val viewModel = AccountViewModel()
-}
-
+class AccountComponent(componentContext: ComponentContext, val viewModel: AccountViewModel) : ComponentContext by componentContext

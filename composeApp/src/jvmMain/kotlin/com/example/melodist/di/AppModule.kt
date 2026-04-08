@@ -4,8 +4,11 @@ import app.cash.sqldelight.db.SqlDriver
 import com.example.melodist.data.account.AccountManager
 import com.example.melodist.data.local.DatabaseDriverFactory
 import com.example.melodist.data.remote.ApiService
-import com.example.melodist.data.repository.MusicRepository
+import com.example.melodist.data.repository.AlbumRepository
+import com.example.melodist.data.repository.ArtistRepository
+import com.example.melodist.data.repository.PlaylistRepository
 import com.example.melodist.data.repository.SearchRepository
+import com.example.melodist.data.repository.SongRepository
 import com.example.melodist.viewmodels.AccountViewModel
 import com.example.melodist.viewmodels.AlbumViewModel
 import com.example.melodist.viewmodels.ArtistViewModel
@@ -39,7 +42,10 @@ val appModule = module {
 
     // Data layer
     single<ApiService> { ApiService() }
-    single<MusicRepository> { MusicRepository(get()) }
+    single<AlbumRepository> { AlbumRepository(get()) }
+    single<ArtistRepository> { ArtistRepository(get()) }
+    single<SongRepository> { SongRepository(get()) }
+    single<PlaylistRepository> { PlaylistRepository(get()) }
     single<SearchRepository> { SearchRepository(get()) }
 
     // Player (singletons — shared across entire app)
@@ -54,9 +60,9 @@ val appModule = module {
     factory { AccountViewModel() }
     factory { HomeViewModel(loginState = AccountManager.loginState) }
     factory { SearchViewModel(get()) }
-    factory { LibraryViewModel(get(), loginState = AccountManager.loginState) }
-    factory { AlbumViewModel(get()) }
-    factory { PlaylistViewModel(get()) }
-    factory { ArtistViewModel(get()) }
+    factory { LibraryViewModel(get(), get(), get(), get(), get(), loginState = AccountManager.loginState) }
+    factory { AlbumViewModel(get(), get()) }
+    factory { PlaylistViewModel(get(), get(), get()) }
+    factory { ArtistViewModel(get(), get()) }
     factory { SettingsViewModel(get()) }
 }

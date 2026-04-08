@@ -2,11 +2,11 @@ package com.example.melodist.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.melodist.data.repository.MusicRepository
+import com.example.melodist.data.remote.ApiService
+import com.example.melodist.data.repository.ArtistRepository
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.pages.ArtistPage
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.logging.Logger
 
 sealed class ArtistState {
     object Loading : ArtistState()
@@ -23,8 +24,12 @@ sealed class ArtistState {
 }
 @OptIn(ExperimentalCoroutinesApi::class)
 class ArtistViewModel(
-    private val repository: MusicRepository
+    private val apiService: ApiService,
+    private val repository: ArtistRepository
 ) : ViewModel() {
+
+    private val log = Logger.getLogger("ArtistViewModel")
+
     private val _uiState = MutableStateFlow<ArtistState>(ArtistState.Loading)
     val uiState = _uiState.asStateFlow()
 
