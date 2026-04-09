@@ -39,8 +39,13 @@ kotlin {
         }
         jvmMain.dependencies {
             api(libs.sqldelight.driver.jvm)
-            api(libs.vlcj)
+            api(libs.composemediaplayer)
 
+            // Source: https://mvnrepository.com/artifact/net.java.dev.jna/jna
+            implementation("net.java.dev.jna:jna:5.18.1")
+
+            // Source: https://mvnrepository.com/artifact/net.java.dev.jna/jna-platform-jpms
+            implementation("net.java.dev.jna:jna-platform-jpms:5.18.1")
             implementation("org.jetbrains.runtime:jbr-api:1.10.1")
             implementation("dev.toastbits:mediasession:0.1.1")
         }

@@ -15,6 +15,8 @@ import com.example.melodist.data.repository.UserPreferencesRepository
 import com.example.melodist.di.appModule
 import com.example.melodist.di.dataStoreModule
 import com.example.melodist.navigation.RootComponent
+import androidx.compose.runtime.LaunchedEffect
+import io.github.kdroidfilter.composemediaplayer.*
 import com.example.melodist.player.PlayerService
 import com.example.melodist.player.WindowsMediaSession
 import com.example.melodist.viewmodels.DownloadViewModel
@@ -105,6 +107,8 @@ fun main() {
                 componentContext = DefaultComponentContext(lifecycle)
             )
         }
+
+        val playerService = remember { koinApp.koin.get<PlayerService>() }
 
         fun doExit() {
             koinApp.koin.get<WindowsMediaSession>().release()

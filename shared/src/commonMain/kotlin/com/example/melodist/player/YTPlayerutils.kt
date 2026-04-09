@@ -71,7 +71,6 @@ object YTPlayerutils {
             val client: YouTubeClient
             if (clientIndex == -1) {
                 // try with streams from main client first
-                client = MAIN_CLIENT
                 streamPlayerResponse = mainPlayerResponse
             } else {
                 // after main client use fallback clients
@@ -177,8 +176,6 @@ object YTPlayerutils {
                     AudioQuality.LOW -> -1
                 } + (if (it.mimeType.startsWith("audio/webm")) 10240 else 0) // prefer opus stream
             }
-
-
         return format
     }
     /**

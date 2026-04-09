@@ -61,7 +61,7 @@ kotlin {
                     exclude(group = "org.jetbrains.compose.material")
                 }
                 implementation(libs.kotlinx.coroutinesSwing)
-                implementation(libs.vlcj)
+                implementation(libs.composemediaplayer)
                 implementation(libs.jnativehook)
                 // Source: https://mvnrepository.com/artifact/net.java.dev.jna/jna
                 implementation("net.java.dev.jna:jna:5.18.1")
