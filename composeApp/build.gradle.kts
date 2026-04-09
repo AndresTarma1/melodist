@@ -107,7 +107,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "Melodist"
-            packageVersion = "1.0.2"
+            packageVersion = "1.0.3"
             vendor = "Tarma"
             description = "Reproductor de música de escritorio"
 

@@ -68,5 +68,4 @@ shared/build/
 innertube/build/
 /.idea/.gitignore
 /composeApp/build/
-/composeApp/build/
-/composeApp/build/
+/mpv-resources/

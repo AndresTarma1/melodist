@@ -1,17 +1,17 @@
 # Melodist (Beta)
 
-> Estado: **En desarrollo** · **Beta 1.0.2** · Orientado a **Windows** · Basado en **Metrolist** · Construido con amplio uso de **IA (IAPS)**
+> Estado: **En desarrollo** · **Beta 1.0.3** · Orientado a **Windows** · Basado en **Metrolist** · Construido con amplio uso de **IA (IAPS)**
 
 Este proyecto es una app de escritorio de streaming de música (Compose Multiplatform) enfocada a Windows, inspirada en [Metrolist](https://github.com/MetrolistGroup/Metrolist) y acelerada con herramientas de IA para iterar el diseño y la lógica.
 
 ## Características
 
-- 🎵 **Streaming de YouTube Music** — Reproduce cualquier canción, álbum, playlist o artista
+- 🎵 **Streaming de YouTube Music** — Reproduce cualquier canción, álbum, playlist o artista (Soporte WebM/Opus)
 - 🔍 **Búsqueda integrada** — Historial persistente con SQLDelight
 - 📚 **Librería personal** — Álbumes guardados, playlists, descargas, favoritos
 - 🎨 **Temas dinámicos** — Material Design 3 con colores extraídos de la carátula
 - ⬇️ **Descargas en caché** — Chunked/resumable (HTTP Range), sin transcodificación
-- 🔊 **VLC embebido** — No requiere instalar VLC en el sistema
+- 🔊 **MPV Nativo** — Motor de audio ultraligero y potente basado en `libmpv` (Sin VLC)
 - ⌨️ **Teclas multimedia** — Play/Pause, Next, Previous, Stop globales (JNativeHook)
 - 🔔 **System Tray** — Minimizar a la bandeja con controles de reproducción
 - 🪟 **Title bar personalizado** — Sin barra nativa, integrado con el tema M3
@@ -26,7 +26,7 @@ Melodist/
 ├── shared/         ← Lógica de negocio (ViewModels, player, DB, preferencias)
 ├── innertube/      ← Cliente de YouTube Music (NO MODIFICAR)
 ├── server/         ← Servidor Ktor (experimental)
-└── vlc/            ← Binarios de VLC embebidos (libvlc.dll, plugins/)
+└── mpv-resources/  ← Binarios de MPV (libmpv-2.dll)
 ```
 
 ## Tecnologías
@@ -37,16 +37,16 @@ Melodist/
 | Navegación | Decompose |
 | DI | Koin |
 | Base de datos | SQLDelight (JDBC SQLite) |
-| Streaming | VLCJ (VLC embebido) |
+| Streaming | MPV (Nativo vía JNA) |
 | Imágenes | Coil 3 (memoria + disco) |
 | Media keys | JNativeHook |
 | HTTP | Ktor Client / OkHttp |
 | Serialización | Kotlinx Serialization |
 
 ## Estado y alcance
-- **Beta 1.0.2**: características en evolución, posibles bugs.
-- **Basado en Metrolist**: lógica de streaming y fallback heredada/adaptada.
-- **Windows-first**: empaqueta VLC embebido para evitar instalaciones externas.
+- **Beta 1.0.3**: características en evolución, posibles bugs.
+- **Sin VLC**: migración total a MPV para mayor ligereza y soporte de codecs (Opus/WebM).
+- **Rutas Estándar**: almacenamiento unificado en `%LOCALAPPDATA%/Melodist`.
 - **IA-driven**: se apoyó intensamente en asistencia de IA (IAPS) para diseño, UI y refactors.
 
 ## Build y ejecución (Desktop / JVM)
@@ -55,27 +55,20 @@ Melodist/
   ```powershell
   .\gradlew.bat :composeApp:run
   ```
-- Empaquetar instalador MSI:
+- Empaquetar instalador MSI/EXE (vía Conveyor):
   ```powershell
-  .\gradlew.bat :composeApp:packageDistributionForCurrentOS
-  ```
-  El instalador se genera en `composeApp/build/compose/binaries/main/msi/`
-
-## Build y ejecución (Server)
-
-- Ejecutar en modo desarrollo:
-  ```powershell
-  .\gradlew.bat :server:run
+  conveyor make windows-msi
   ```
 
-## Rutas de datos
+## Rutas de datos (Windows Estándar)
 
-| Ruta | Contenido |
-|------|-----------|
-| `~/.melodist/` | Base de datos, caché de imágenes, canciones descargadas |
-| `~/.melodist/cache/songs/` | Audio en caché (m4a/webm) |
-| `~/.melodist/image_cache/` | Caché de Coil (miniaturas) |
-| `%APPDATA%/melodist/` | Cookie de sesión, configuración |
+| Contenido | Ruta |
+|-----------|------|
+| **Base de Datos** | `%LOCALAPPDATA%/Melodist/melodist.db` |
+| **Preferencias** | `%LOCALAPPDATA%/Melodist/data/` |
+| **Canciones en Caché** | `%LOCALAPPDATA%/Melodist/cache/songs/` |
+| **Caché de Imágenes** | `%LOCALAPPDATA%/Melodist/cache/image_cache/` |
+| **Cookies / Logs** | `%LOCALAPPDATA%/Melodist/logs/` |
 
 ---
 Más info sobre [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html) y Compose Multiplatform en la documentación oficial.
