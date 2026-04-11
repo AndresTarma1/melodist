@@ -32,6 +32,7 @@ class DownloadService(
     fun removeDownload(songId: String) = repo.removeDownload(songId)
     fun clearCache() = repo.clearCache()
     fun isDownloaded(songId: String): Boolean = repo.isDownloaded(songId)
+
     fun release() = repo.release()
 
     companion object {

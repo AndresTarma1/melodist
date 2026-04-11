@@ -72,6 +72,10 @@ class LibraryViewModel(
     val savedPlaylists = playlistRepository.getSavedPlaylists().map { it.map(::savedPlaylistToPlaylistItem) }
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    val localPlaylists = savedPlaylists.map { playlists ->
+        playlists.filter { it.id.startsWith("LOCAL_") }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     // ── Remote YTM (cuenta) ─────────────────────────────────
 
     private val _ytmState = MutableStateFlow<YtmLibraryState>(YtmLibraryState.Idle)
@@ -143,13 +147,43 @@ class LibraryViewModel(
                 id = id,
                 title = name,
                 author = Artist(name = "Local", id = null),
-                songCountText = "0 canciones",
+                songCountText = null,
                 thumbnail = null,
                 playEndpoint = null,
                 shuffleEndpoint = null,
                 radioEndpoint = null
             )
             playlistRepository.savePlaylist(playlist)
+        }
+    }
+
+    @OptIn(ExperimentalUuidApi::class)
+    fun createLocalPlaylistWithSong(name: String, song: SongItem) {
+        viewModelScope.launch {
+            val id = "LOCAL_${kotlin.uuid.Uuid.random()}"
+            val playlist = PlaylistItem(
+                id = id,
+                title = name,
+                author = Artist(name = "Local", id = null),
+                songCountText = null,
+                thumbnail = song.thumbnail,
+                playEndpoint = null,
+                shuffleEndpoint = null,
+                radioEndpoint = null
+            )
+            playlistRepository.savePlaylistWithSongs(playlist, listOf(song))
+        }
+    }
+
+    fun addSongToLocalPlaylist(playlistId: String, song: SongItem) {
+        viewModelScope.launch {
+            playlistRepository.addSongToPlaylist(playlistId, song)
+        }
+    }
+
+    fun removeSongFromLocalPlaylist(playlistId: String, songId: String) {
+        viewModelScope.launch {
+            playlistRepository.removeSongFromPlaylist(playlistId, songId)
         }
     }
 

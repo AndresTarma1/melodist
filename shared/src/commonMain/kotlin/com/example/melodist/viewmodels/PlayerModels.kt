@@ -20,10 +20,22 @@ sealed class QueueSource {
     data object Custom : QueueSource()
 }
 
+data class QueueSession(
+    val source: QueueSource = QueueSource.Custom,
+    val items: List<SongItem> = emptyList(),
+    val order: List<Int> = emptyList(),
+    val currentIndex: Int = -1,
+) {
+    fun currentSong(): SongItem? = order.getOrNull(currentIndex)?.let(items::getOrNull)
+
+    fun queueItems(): List<SongItem> = order.mapNotNull { items.getOrNull(it) }
+
+    fun naturalOrder(): List<Int> = items.indices.toList()
+}
+
 data class PlayerUiState(
     val currentSong: SongItem? = null,
     val queue: List<SongItem> = emptyList(),
-    val originalQueue: List<SongItem> = emptyList(),
     val currentIndex: Int = -1,
     val playbackState: PlaybackState = PlaybackState.IDLE,
     // positionMs y durationMs se mantienen aquí para compatibilidad con
@@ -34,6 +46,7 @@ data class PlayerUiState(
     val isShuffled: Boolean = false,
     val repeatMode: RepeatMode = RepeatMode.OFF,
     val error: String? = null,
+    val queueSession: QueueSession = QueueSession(),
 )
 
 /**

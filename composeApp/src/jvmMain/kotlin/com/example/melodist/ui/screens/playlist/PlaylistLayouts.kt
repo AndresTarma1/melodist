@@ -111,6 +111,8 @@ internal fun PlaylistLayout(
                     PlaylistSongItem(
                         index = index + 1,
                         song = song,
+                        isLocalPlaylist = actions.isLocalPlaylist,
+                        onRemoveFromPlaylist = actions.onRemoveSongFromPlaylist,
                         onClick = {
                             playerViewModel.playPlaylist(
                                 state.songs, index,
@@ -358,7 +360,9 @@ internal fun DownloadAllButton(
 internal fun PlaylistSongItem(
     index: Int,
     song: SongItem,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    isLocalPlaylist: Boolean = false,
+    onRemoveFromPlaylist: ((String) -> Unit)? = null,
 ) {
     val downloadViewModel = LocalDownloadViewModel.current
 
@@ -480,6 +484,10 @@ internal fun PlaylistSongItem(
             onDismiss = { showContextMenu = false },
             offset = menuOffset,
             song = song,
+            isLocalPlaylist = isLocalPlaylist,
+            onRemoveFromPlaylist = if (isLocalPlaylist) {
+                { onRemoveFromPlaylist?.invoke(song.id) }
+            } else null,
         )
     }
 }

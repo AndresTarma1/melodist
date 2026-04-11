@@ -46,7 +46,6 @@ class PlayerViewModel(
     val progressState: StateFlow<PlayerProgressState> = _progressState.asStateFlow()
 
     private var resolveJob: Job? = null
-    private var originalQueue: List<SongItem> = emptyList()
 
     init {
         // Sync audio quality preference → stream resolver
@@ -145,36 +144,48 @@ class PlayerViewModel(
     // ─── Play actions ──────────────────────────────────────
 
     fun playSingle(song: SongItem) {
-        val source = QueueSource.Single(song.id)
+        val session = QueueSession(
+            source = QueueSource.Single(song.id),
+            items = listOf(song),
+            order = listOf(0),
+            currentIndex = 0
+        )
         _uiState.update {
             it.copy(
                 currentSong = song,
-                queue = listOf(song),
-                currentIndex = 0,
-                queueSource = source,
-                error = null
+                queue = session.queueItems(),
+                currentIndex = session.currentIndex,
+                queueSource = session.source,
+                error = null,
+                isShuffled = false,
+                queueSession = session
             )
         }
-        originalQueue = listOf(song)
         resolveAndPlay(song)
-        fetchRelatedQueue(song)
+        fetchRelatedQueue(song, session)
     }
 
     fun playAlbum(songs: List<SongItem>, startIndex: Int = 0, browseId: String, title: String) {
         if (songs.isEmpty()) return
         val source = QueueSource.Album(browseId, title)
         val idx = startIndex.coerceIn(0, songs.lastIndex)
+        val session = QueueSession(
+            source = source,
+            items = songs,
+            order = songs.indices.toList(),
+            currentIndex = idx
+        )
         _uiState.update {
             it.copy(
                 currentSong = songs[idx],
-                queue = songs,
+                queue = session.queueItems(),
                 currentIndex = idx,
                 queueSource = source,
                 error = null,
-                isShuffled = false
+                isShuffled = false,
+                queueSession = session
             )
         }
-        originalQueue = songs
         resolveAndPlay(songs[idx])
     }
 
@@ -182,15 +193,21 @@ class PlayerViewModel(
         if (songs.isEmpty()) return
         val source = QueueSource.Playlist(playlistId, title)
         val idx = startIndex.coerceIn(0, songs.lastIndex)
+        val session = QueueSession(
+            source = source,
+            items = songs,
+            order = songs.indices.toList(),
+            currentIndex = idx
+        )
         _uiState.update {
             it.copy(
                 currentSong = songs[idx],
-                queue = songs,
+                queue = session.queueItems(),
                 currentIndex = idx,
                 queueSource = source,
                 error = null,
                 isShuffled = false,
-                originalQueue = songs
+                queueSession = session
             )
         }
         resolveAndPlay(songs[idx])
@@ -199,17 +216,23 @@ class PlayerViewModel(
     fun playCustom(songs: List<SongItem>, startIndex: Int = 0) {
         if (songs.isEmpty()) return
         val idx = startIndex.coerceIn(0, songs.lastIndex)
+        val session = QueueSession(
+            source = QueueSource.Custom,
+            items = songs,
+            order = songs.indices.toList(),
+            currentIndex = idx
+        )
         _uiState.update {
             it.copy(
                 currentSong = songs[idx],
-                queue = songs,
+                queue = session.queueItems(),
                 currentIndex = idx,
                 queueSource = QueueSource.Custom,
                 error = null,
-                isShuffled = false
+                isShuffled = false,
+                queueSession = session
             )
         }
-        originalQueue = songs
         resolveAndPlay(songs[idx])
     }
 
@@ -235,16 +258,16 @@ class PlayerViewModel(
     fun next() {
 
         val state = _uiState.value
-        if (state.queue.isEmpty()) return
+        if (state.queueSession.items.isEmpty()) return
 
         val nextIndex = when (state.repeatMode) {
             RepeatMode.ONE -> state.currentIndex
 
-            RepeatMode.ALL -> (state.currentIndex + 1) % state.queue.size
+            RepeatMode.ALL -> (state.currentIndex + 1) % state.queueSession.order.size
 
             RepeatMode.OFF -> {
                 val n = state.currentIndex + 1
-                if (n >= state.queue.size) {
+                if (n >= state.queueSession.order.size) {
                     stop()
                     return
                 }
@@ -254,9 +277,12 @@ class PlayerViewModel(
 
         // 1️⃣ Actualizar estado
         _uiState.update {
+            val updatedSession = it.queueSession.copy(currentIndex = nextIndex)
             it.copy(
                 currentIndex = nextIndex,
-                currentSong = it.queue[nextIndex]
+                currentSong = updatedSession.order.getOrNull(nextIndex)?.let(updatedSession.items::getOrNull),
+                queueSession = updatedSession,
+                queue = updatedSession.queueItems()
             )
         }
 
@@ -266,7 +292,7 @@ class PlayerViewModel(
 
     fun previous() {
         val state = _uiState.value
-        if (state.queue.isEmpty()) return
+        if (state.queueSession.items.isEmpty()) return
 
         if (_progressState.value.positionMs > 3000) {
             seekTo(0)
@@ -275,7 +301,7 @@ class PlayerViewModel(
 
         val prevIndex = when (state.repeatMode) {
             RepeatMode.ONE -> state.currentIndex
-            RepeatMode.ALL -> if (state.currentIndex - 1 < 0) state.queue.lastIndex else state.currentIndex - 1
+            RepeatMode.ALL -> if (state.currentIndex - 1 < 0) state.queueSession.order.lastIndex else state.currentIndex - 1
             RepeatMode.OFF -> {
                 val p = state.currentIndex - 1
                 if (p < 0) 0 else p
@@ -286,25 +312,29 @@ class PlayerViewModel(
 
     fun toggleShuffle() {
         _uiState.update { state ->
+            val session = state.queueSession
+            if (session.items.isEmpty()) return@update state
+
             if (state.isShuffled) {
-                // Restaurar orden original manteniendo la canción actual
+                val naturalOrder = session.naturalOrder()
                 val currentId = state.currentSong?.id
-                val newIndex = state.originalQueue.indexOfFirst { it.id == currentId }.coerceAtLeast(0)
+                val newIndex = naturalOrder.indexOfFirst { session.items.getOrNull(it)?.id == currentId }.coerceAtLeast(0)
                 state.copy(
-                    queue = state.originalQueue,
+                    queue = naturalOrder.mapNotNull { session.items.getOrNull(it) },
                     currentIndex = newIndex,
-                    isShuffled = false
+                    isShuffled = false,
+                    queueSession = session.copy(order = naturalOrder, currentIndex = newIndex)
                 )
             } else {
-                // Crear orden aleatorio manteniendo la canción actual al inicio
-                val rest = state.originalQueue
-                    .filter { it.id != state.currentSong?.id }
-                    .shuffled()
-                val shuffled = listOfNotNull(state.currentSong) + rest
+                val currentItem = state.currentSong ?: return@update state
+                val currentBaseIndex = session.items.indexOfFirst { it.id == currentItem.id }.coerceAtLeast(0)
+                val rest = session.items.indices.filter { it != currentBaseIndex }.shuffled()
+                val shuffledOrder = listOf(currentBaseIndex) + rest
                 state.copy(
-                    queue = shuffled,
+                    queue = shuffledOrder.mapNotNull { session.items.getOrNull(it) },
                     currentIndex = 0,
-                    isShuffled = true
+                    isShuffled = true,
+                    queueSession = session.copy(order = shuffledOrder, currentIndex = 0)
                 )
             }
         }
@@ -326,7 +356,6 @@ class PlayerViewModel(
         resolveJob?.cancel()
         playerService.stop()
         _progressState.value = PlayerProgressState()
-        originalQueue = emptyList()
         _uiState.update { PlayerUiState() }
         mediaSession.resetToIdle()
     }
@@ -334,49 +363,65 @@ class PlayerViewModel(
     // ─── Queue manipulation ────────────────────────────────
 
     fun addToQueue(song: SongItem) {
-        _uiState.update { it.copy(queue = it.queue + song) }
-        originalQueue = originalQueue + song
+        _uiState.update { state ->
+            if (state.queueSession.items.isEmpty()) return@update state.copy(queueSession = QueueSession(source = QueueSource.Custom, items = listOf(song), order = listOf(0), currentIndex = 0), queue = listOf(song))
+            val session = state.queueSession
+            val items = session.items + song
+            val order = session.order + items.lastIndex
+            state.copy(
+                queueSession = session.copy(items = items, order = order),
+                queue = order.mapNotNull { items.getOrNull(it) }
+            )
+        }
     }
 
     /** Insert song right after the currently playing song (play next). */
     fun playNext(song: SongItem) {
         _uiState.update { state ->
-            val insertAt = (state.currentIndex + 1).coerceAtMost(state.queue.size)
-            val newQueue = state.queue.toMutableList().apply { add(insertAt, song) }
-            state.copy(queue = newQueue)
+            if (state.queueSession.items.isEmpty()) return@update state.copy(queueSession = QueueSession(source = QueueSource.Custom, items = listOf(song), order = listOf(0), currentIndex = 0), queue = listOf(song))
+            val session = state.queueSession
+            val items = session.items + song
+            val insertedBaseIndex = items.lastIndex
+            val insertAt = (state.currentIndex + 1).coerceAtMost(session.order.size)
+            val newOrder = session.order.toMutableList().apply { add(insertAt, insertedBaseIndex) }
+            state.copy(
+                queueSession = session.copy(items = items, order = newOrder),
+                queue = newOrder.mapNotNull { items.getOrNull(it) }
+            )
         }
-        val insertAt = (_uiState.value.currentIndex).coerceAtMost(originalQueue.size)
-        originalQueue = originalQueue.toMutableList().apply { add(insertAt, song) }
     }
 
     fun removeFromQueue(index: Int) {
         val state = _uiState.value
-        if (index < 0 || index >= state.queue.size) return
+        if (index < 0 || index >= state.queueSession.order.size) return
 
-        val newQueue = state.queue.toMutableList().apply { removeAt(index) }
+        val session = state.queueSession
+        val newOrder = session.order.toMutableList().apply { removeAt(index) }
+        val newItems = session.items
         val newIndex = when {
-            newQueue.isEmpty() -> {
+            newOrder.isEmpty() -> {
                 stop()
                 return
             }
             index < state.currentIndex -> state.currentIndex - 1
             index == state.currentIndex -> {
-                val nextIdx = index.coerceAtMost(newQueue.lastIndex)
-                _uiState.update { it.copy(queue = newQueue, currentIndex = nextIdx, currentSong = newQueue[nextIdx]) }
-                resolveAndPlay(newQueue[nextIdx])
+                val nextIdx = index.coerceAtMost(newOrder.lastIndex)
+                val nextSong = newOrder.getOrNull(nextIdx)?.let(newItems::getOrNull)
+                _uiState.update { it.copy(queue = newOrder.mapNotNull { idx -> newItems.getOrNull(idx) }, currentIndex = nextIdx, currentSong = nextSong, queueSession = session.copy(order = newOrder, currentIndex = nextIdx)) }
+                nextSong?.let { resolveAndPlay(it) }
                 return
             }
             else -> state.currentIndex
         }
-        _uiState.update { it.copy(queue = newQueue, currentIndex = newIndex) }
+        _uiState.update { it.copy(queue = newOrder.mapNotNull { idx -> newItems.getOrNull(idx) }, currentIndex = newIndex, queueSession = session.copy(order = newOrder, currentIndex = newIndex)) }
     }
 
     fun playAtIndex(index: Int) {
         val state = _uiState.value
-        if (index < 0 || index >= state.queue.size) return
+        if (index < 0 || index >= state.queueSession.order.size) return
 
-        val song = state.queue[index]
-        _uiState.update { it.copy(currentSong = song, currentIndex = index, error = null) }
+        val song = state.queueSession.order.getOrNull(index)?.let(state.queueSession.items::getOrNull) ?: return
+        _uiState.update { it.copy(currentSong = song, currentIndex = index, error = null, queueSession = state.queueSession.copy(currentIndex = index)) }
         resolveAndPlay(song)
     }
 
@@ -430,7 +475,7 @@ class PlayerViewModel(
         }
     }
 
-    private fun fetchRelatedQueue(song: SongItem) {
+    private fun fetchRelatedQueue(song: SongItem, sessionSeed: QueueSession) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val endpoint = WatchEndpoint(videoId = song.id)
@@ -438,24 +483,30 @@ class PlayerViewModel(
                 val originalSongId = song.id
 
                 _uiState.update { state ->
-                    if (state.currentSong?.id == originalSongId) {
-                        val suggestedCurrent = result.items.find { it.id == originalSongId }
-                        val newSongs = result.items.filter { it.id != originalSongId }
+                    if (state.currentSong?.id != originalSongId || sessionSeed.source !is QueueSource.Single) return@update state
 
-                        state.copy(
-                            currentSong = if (state.currentSong.duration == null && suggestedCurrent?.duration != null) {
-                                state.currentSong.copy(duration = suggestedCurrent.duration)
-                            } else state.currentSong,
-                            queue = (if (state.currentSong.duration == null && suggestedCurrent?.duration != null) {
-                                state.queue.toMutableList().apply {
-                                    if (state.currentIndex in indices) {
-                                        this[state.currentIndex] = this[state.currentIndex].copy(duration = suggestedCurrent.duration)
-                                    }
-                                }
-                            } else state.queue) + newSongs,
-                            originalQueue = state.originalQueue + newSongs
+                    val suggestedCurrent = result.items.find { it.id == originalSongId }
+                    val related = result.items.filter { it.id != originalSongId }
+                    val items = listOfNotNull(
+                        state.currentSong?.let {
+                            if (it.duration == null && suggestedCurrent?.duration != null) it.copy(duration = suggestedCurrent.duration) else it
+                        }
+                    ) + related
+                    val order = items.indices.toList()
+
+                    state.copy(
+                        currentSong = items.firstOrNull(),
+                        queue = items,
+                        currentIndex = 0,
+                        queueSource = QueueSource.Single(originalSongId),
+                        isShuffled = false,
+                        queueSession = QueueSession(
+                            source = QueueSource.Single(originalSongId),
+                            items = items,
+                            order = order,
+                            currentIndex = 0
                         )
-                    } else state
+                    )
                 }
             } catch (_: Exception) { }
         }

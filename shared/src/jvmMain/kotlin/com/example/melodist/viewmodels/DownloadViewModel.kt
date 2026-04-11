@@ -5,19 +5,13 @@ import androidx.lifecycle.ViewModel
 
 import androidx.lifecycle.viewModelScope
 
+import com.example.melodist.data.repository.SongRepository
 import com.example.melodist.db.DatabaseDao
-
-import com.example.melodist.db.entities.SongEntity
-
-import com.example.melodist.db.entities.SongWithRelations
 
 import com.example.melodist.player.DownloadService
 
 import com.example.melodist.player.DownloadState
 
-import com.metrolist.innertube.models.Album
-
-import com.metrolist.innertube.models.Artist
 import com.metrolist.innertube.models.SongItem
 import kotlinx.coroutines.Dispatchers
 
@@ -41,21 +35,21 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.collections.emptyList
 
 
 /**
-
  * ViewModel that exposes download state to the UI.
-
- * Registered as a singleton in Koin so download state is shared app-wide.
-
+ * Registered as a singleton in KOIN so download state is shared app-wide.
  */
 
 class DownloadViewModel(
 
     private val downloadService: DownloadService,
 
-    private val databaseDao: DatabaseDao
+    private val databaseDao: DatabaseDao,
+
+    private val songRepository: SongRepository
 
 ) : ViewModel() {
 
@@ -63,48 +57,51 @@ class DownloadViewModel(
     /** Per-song download states (songId → DownloadState). */
 
     val downloadStates: StateFlow<Map<String, DownloadState>> =
-
         downloadService.downloadStates
 
 
     /** Total cache size as human-readable string. */
 
     private val _cacheSizeText = MutableStateFlow("Calculando...")
-
     val cacheSizeText: StateFlow<String> = _cacheSizeText.asStateFlow()
+
+    private val _downloadedSongs = MutableStateFlow<List<SongItem>>(emptyList())
+    private var lastCompletedSongIds: Set<String> = emptySet()
 
 
     /** Downloaded songs from DB as SongItems (for the Library Downloads tab). */
-
-    val downloadedSongs: StateFlow<List<SongItem>> = databaseDao.downloadedSongsWithRelations()
-
-        .map { relations -> relations.map { it.toSongItem() } }
-
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    val downloadedSongs: StateFlow<List<SongItem>> = _downloadedSongs.asStateFlow()
 
 
     /** Initialization state for the downloads tab content. */
 
     private val _isLoading = MutableStateFlow(true)
-
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
 
     init {
 
         viewModelScope.launch {
-
-
-            downloadedSongs.firstOrNull()
-
+            _downloadedSongs.value = songRepository.getDownloadedSongs()
+            refreshDerivedDownloadedCollections()
             _isLoading.value = false
+        }
 
+        viewModelScope.launch {
+            downloadStates.collect { states ->
+                val completedIds = states
+                    .filterValues { it is DownloadState.Completed }
+                    .keys
+
+                if (completedIds != lastCompletedSongIds) {
+                    lastCompletedSongIds = completedIds
+                    refreshDerivedDownloadedCollections()
+                }
+            }
         }
 
         viewModelScope.launch(Dispatchers.IO) {
-
             refreshCacheSize()
-
         }
 
     }
@@ -113,18 +110,14 @@ class DownloadViewModel(
     /** Total downloaded song count. */
 
     val downloadedCount: StateFlow<Int> = downloadedSongs
-
         .map { it.size }
-
-        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, 0)
 
 
     /** Songs currently being downloaded (metadata for UI display). */
 
     val pendingSongItems: StateFlow<Map<String, SongItem>> =
-
         downloadService.pendingSongItems
-
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
 
@@ -139,64 +132,15 @@ class DownloadViewModel(
      */
 
     data class DownloadedAlbumInfo(
-
         val albumId: String,
-
         val albumName: String,
-
         val thumbnail: String?,
-
         val songs: List<SongItem>,
-
         val totalSongCount: Int
-
     )
 
-    val fullyDownloadedAlbums: StateFlow<List<DownloadedAlbumInfo>> = downloadedSongs
-
-        .map { songs ->
-
-            withContext(Dispatchers.IO) {
-
-                val albumIds = songs.mapNotNull { it.album?.id }.distinct()
-
-                albumIds.mapNotNull { albumId ->
-
-                    val albumEntity = databaseDao?.albumById(albumId)?.firstOrNull() ?: return@mapNotNull null
-
-                    val totalCount = albumEntity.songCount
-
-                    if (totalCount <= 0) return@mapNotNull null
-
-
-                    val downloadedCount = databaseDao.countDownloadedByAlbum(albumId) ?: 0L
-
-                    if (downloadedCount >= totalCount.toLong()) {
-
-                        DownloadedAlbumInfo(
-
-                            albumId = albumId,
-
-                            albumName = albumEntity.title,
-
-                            thumbnail = albumEntity.thumbnailUrl
-                                ?: songs.firstOrNull { it.album?.id == albumId }?.thumbnail,
-
-                            songs = songs.filter { it.album?.id == albumId },
-
-                            totalSongCount = totalCount
-
-                        )
-
-                    } else null
-
-                }.sortedBy { it.albumName }
-
-            }
-
-        }
-
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    private val _fullyDownloadedAlbums = MutableStateFlow<List<DownloadedAlbumInfo>>(emptyList())
+    val fullyDownloadedAlbums: StateFlow<List<DownloadedAlbumInfo>> = _fullyDownloadedAlbums.asStateFlow()
 
 
     /**
@@ -219,50 +163,8 @@ class DownloadViewModel(
 
     )
 
-
-    val fullyDownloadedPlaylists: StateFlow<List<DownloadedPlaylistInfo>> = downloadedSongs
-
-        .map { _ ->
-
-            withContext(Dispatchers.IO) {
-
-                val playlists = databaseDao?.allPlaylists()?.firstOrNull() ?: emptyList()
-
-                playlists.mapNotNull { playlist ->
-
-                    val total = databaseDao?.countByPlaylist(playlist.id) ?: 0L
-
-                    if (total == 0L) return@mapNotNull null
-
-                    val downloaded = databaseDao?.countDownloadedByPlaylist(playlist.id) ?: 0L
-
-
-
-                    if (total == downloaded) {
-
-                        DownloadedPlaylistInfo(
-
-                            playlistId = playlist.browseId ?: playlist.id,
-
-                            playlistName = playlist.name,
-
-                            thumbnail = playlist.thumbnailUrl,
-
-                            downloadedSongCount = downloaded.toInt(),
-
-                            totalSongCount = playlist.remoteSongCount ?: total.toInt()
-
-                        )
-
-                    } else null
-
-                }
-
-            }
-
-        }
-
-        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+    private val _fullyDownloadedPlaylists = MutableStateFlow<List<DownloadedPlaylistInfo>>(emptyList())
+    val fullyDownloadedPlaylists: StateFlow<List<DownloadedPlaylistInfo>> = _fullyDownloadedPlaylists.asStateFlow()
 
 
 // ─── Actions ───────────────────────────────────────────
@@ -311,6 +213,43 @@ class DownloadViewModel(
         }
     }
 
+    private suspend fun refreshDerivedDownloadedCollections() = withContext(Dispatchers.IO) {
+        val songs = _downloadedSongs.value
+
+        val albumIds = songs.mapNotNull { it.album?.id }.distinct()
+        _fullyDownloadedAlbums.value = albumIds.mapNotNull { albumId ->
+            val albumEntity = databaseDao.albumById(albumId).firstOrNull() ?: return@mapNotNull null
+            val totalCount = albumEntity.songCount
+            if (totalCount <= 0) return@mapNotNull null
+            val downloadedCount = databaseDao.countDownloadedByAlbum(albumId) ?: 0L
+            if (downloadedCount >= totalCount.toLong()) {
+                DownloadedAlbumInfo(
+                    albumId = albumId,
+                    albumName = albumEntity.title,
+                    thumbnail = albumEntity.thumbnailUrl ?: songs.firstOrNull { it.album?.id == albumId }?.thumbnail,
+                    songs = songs.filter { it.album?.id == albumId },
+                    totalSongCount = totalCount
+                )
+            } else null
+        }.sortedBy { it.albumName }
+
+        val playlists = databaseDao.allPlaylists().firstOrNull() ?: emptyList()
+        _fullyDownloadedPlaylists.value = playlists.mapNotNull { playlist ->
+            val total = databaseDao.countByPlaylist(playlist.id) ?: 0L
+            if (total == 0L) return@mapNotNull null
+            val downloaded = databaseDao.countDownloadedByPlaylist(playlist.id) ?: 0L
+            if (total == downloaded) {
+                DownloadedPlaylistInfo(
+                    playlistId = playlist.browseId ?: playlist.id,
+                    playlistName = playlist.name,
+                    thumbnail = playlist.thumbnailUrl,
+                    downloadedSongCount = downloaded.toInt(),
+                    totalSongCount = playlist.remoteSongCount ?: total.toInt()
+                )
+            } else null
+        }
+    }
+
 
     /** Returns a flow for a single song's download state, distinct until changed. */
 
@@ -337,32 +276,4 @@ class DownloadViewModel(
         }.distinctUntilChanged()
 
 }
-
-
-/** Converts a [SongWithRelations] to a [SongItem] for UI display, including artists. */
-
-private fun SongWithRelations.toSongItem(): SongItem = SongItem(
-    id = song.id,
-    title = song.title,
-    artists = artists.map { Artist(name = it.name, id = it.id) },
-    album = if (song.albumName != null && song.albumId != null) Album(
-        name = song.albumName, id = song.albumId
-    ) else null,
-    duration = if (song.duration > 0) song.duration else null,
-    thumbnail = song.thumbnailUrl ?: "",
-    explicit = song.explicit
-)
-
-
-/** Converts a [SongEntity] to a [SongItem] (simplified, no artists). */
-
-private fun SongEntity.toSongItem(): SongItem = SongItem(
-    id = id,
-    title = title,
-    artists = emptyList(),
-    album = if (albumName != null && albumId != null) Album(name = albumName, id = albumId) else null,
-    duration = if (duration > 0) duration else null,
-    thumbnail = thumbnailUrl ?: "",
-    explicit = explicit
-)
 

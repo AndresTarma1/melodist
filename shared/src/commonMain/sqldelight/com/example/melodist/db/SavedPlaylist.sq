@@ -24,6 +24,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 delete:
 DELETE FROM SavedPlaylist WHERE id = ?;
 
+updateSongCountText:
+UPDATE SavedPlaylist SET songCountText = ? WHERE id = ?;
+
 deleteAll:
 DELETE FROM SavedPlaylist;
 

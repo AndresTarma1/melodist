@@ -4,8 +4,10 @@ import com.sun.jna.Pointer
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.logging.Logger
 
 class MpvAudioPlayer {
+    private val log = Logger.getLogger("MpvAudioPlayer")
     private var handle: Pointer? = null
     private val _isPlaying = MutableStateFlow(false)
     val isPlaying = _isPlaying.asStateFlow()
@@ -20,11 +22,12 @@ class MpvAudioPlayer {
                 MpvLib.INSTANCE.mpv_set_property_string(it, "video", "no")
                 MpvLib.INSTANCE.mpv_set_property_string(it, "audio-channels", "stereo")
                 MpvLib.INSTANCE.mpv_set_property_string(it, "ao", "wasapi") // Forzar salida nativa de Windows
-                
+
                 MpvLib.INSTANCE.mpv_initialize(it)
             }
         } catch (e: Exception) {
-            // Error silencioso
+            log.severe("MpvAudioPlayer init failed: ${e.message}")
+            throw e
         }
     }
 

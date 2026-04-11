@@ -18,6 +18,7 @@ import com.example.melodist.navigation.RootComponent
 import com.example.melodist.player.PlayerService
 import com.example.melodist.player.WindowsMediaSession
 import com.example.melodist.viewmodels.DownloadViewModel
+import com.example.melodist.viewmodels.LibraryViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -27,6 +28,7 @@ import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.time.LocalDateTime
+import kotlin.system.exitProcess
 
 fun main() {
 
@@ -56,6 +58,12 @@ fun main() {
         koinApp.koin.get<DownloadViewModel>()
     } catch (e: Throwable) {
         logStartupError("Error creando DownloadViewModel", e)
+        throw e
+    }
+    val libraryViewModel = try {
+        koinApp.koin.get<LibraryViewModel>()
+    } catch (e: Throwable) {
+        logStartupError("Error creando LibraryViewModel", e)
         throw e
     }
 
@@ -106,19 +114,18 @@ fun main() {
             )
         }
 
-        val playerService = remember { koinApp.koin.get<PlayerService>() }
-
         fun doExit() {
             koinApp.koin.get<WindowsMediaSession>().release()
             runCatching { koinApp.koin.get<PlayerService>().release() }
             stopKoin()
-            exitApplication()
+            exitProcess(0)
         }
 
         App(
             rootComponent = rootComponent,
             playerViewModel = playerViewModel,
             downloadViewModel = downloadViewModel,
+            libraryViewModel = libraryViewModel,
             userPreferences = userPreferencesRepository,
             windowState = windowState,
             onExit = ::doExit

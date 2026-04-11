@@ -116,11 +116,9 @@ class DownloadRepository(
     // ─── Download a single song ────────────────────────────
 
     fun downloadSong(song: SongItem) {
-        // Todo ocurre dentro del scope para no bloquear la UI
         scope.launch(Dispatchers.IO) {
             val songId = song.id
 
-            // 1. Verificación rápida inicial
             val current = _downloadStates.value[songId]
             if (current is DownloadState.Downloading || current is DownloadState.Queued) return@launch
 
@@ -130,23 +128,19 @@ class DownloadRepository(
             }
 
             try {
-                // Marcamos como en cola
                 _downloadStates.update { it + (songId to DownloadState.Queued) }
                 _pendingSongItems.update { it + (songId to song) }
 
                 semaphore.withPermit {
                     if (!isActive) return@withPermit
 
-                    // 2. Obtener Metadata (Ya no bloquea el hilo principal)
                     val playbackData = YTPlayerutils.playerResponseForMetadata(songId).getOrNull()
                     val duration = playbackData?.videoDetails?.lengthSeconds?.toInt()
 
                     _downloadStates.update { it + (songId to DownloadState.Downloading(0f)) }
 
-                    // 3. Resolución de Stream
                     val stream = streamResolver.resolveAudioStream(songId)
 
-                    // Actualizamos el objeto con la duración real obtenida
                     val updatedSong = song.copy(duration = duration)
                     ensureSongInDb(updatedSong)
 
@@ -156,7 +150,6 @@ class DownloadRepository(
 
                     val totalBytes = stream.format.contentLength ?: probeContentLength(stream.streamUrl)
 
-                    // 4. Ejecución de descarga
                     if (totalBytes == null || totalBytes <= 0) {
                         downloadSingleRequest(stream.streamUrl, partFile, songId)
                     } else {
@@ -165,7 +158,6 @@ class DownloadRepository(
 
                     if (!isActive) throw CancellationException("Scope cancelado")
 
-                    // 5. Finalización atómica
                     if (partFile.exists() && partFile.length() > 0) {
                         if (partFile.renameTo(targetFile)) {
                             saveFormatMetadata(songId, stream)
@@ -178,9 +170,9 @@ class DownloadRepository(
                     }
                 }
             } catch (e: CancellationException) {
-                manejarCancelacion(songId, e)
+                onCancelDownloadExc(songId, e)
             } catch (e: Exception) {
-                manejarError(songId, e)
+                onException(songId, e)
             } finally {
                 _pendingSongItems.update { it - songId }
             }
@@ -197,17 +189,15 @@ class DownloadRepository(
     }
 
 
-    fun manejarError(songId: String, e: Exception) {
-        log.warning("Download failed: $songId — ${'$'}${e.message}")
+    fun onException(songId: String, e: Exception) {
+        log.warning($$"Download failed: $$songId — $$${e.message}")
         _downloadStates.update { it + (songId to DownloadState.Failed(e.message ?: "Error desconocido")) }
         _pendingSongItems.update { it - songId }
     }
 
-    fun manejarCancelacion(songId: String, e: CancellationException) {
+    fun onCancelDownloadExc(songId: String, e: CancellationException) {
         _downloadStates.update { it + (songId to DownloadState.Cancelled) }
-
         _pendingSongItems.update { it - songId }
-
         cleanupPartFiles(songId)
 
         throw e
@@ -381,7 +371,7 @@ class DownloadRepository(
                 connection.connect()
 
                 if (connection.responseCode !in 200..299) {
-                    throw Exception("HTTP ${'$'}{connection.responseCode}: ${'$'}{connection.responseMessage}")
+                    throw Exception($$"HTTP ${connection.responseCode}: ${connection.responseMessage}")
                 }
 
                 val totalBytes = connection.contentLengthLong
@@ -426,7 +416,7 @@ class DownloadRepository(
                 connection.disconnect()
             }
         } catch (e: Exception) {
-            log.warning("HEAD probe failed: ${'$'}{e.message}")
+            log.warning($$"HEAD probe failed: ${e.message}")
             null
         }
     }
@@ -449,7 +439,7 @@ class DownloadRepository(
         }
         // Always ensure artists and song-artist mappings exist
         song.artists.forEachIndexed { index, artist ->
-            val artistId = artist.id ?: "unknown_${'$'}{artist.name.hashCode()}"
+            val artistId = artist.id ?: $$"unknown_${artist.name.hashCode()}"
             val existingArtist = databaseDao.artistById(artistId).firstOrNull()
             if (existingArtist == null) {
                 databaseDao.insertArtist(

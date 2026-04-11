@@ -42,7 +42,9 @@ data class PlaylistActions(
     val onPlayAll: () -> Unit,
     val onShuffle: () -> Unit,
     val onLoadMore: () -> Unit,
-    val onDownloadPlaylist: () -> Unit
+    val onDownloadPlaylist: () -> Unit,
+    val onRemoveSongFromPlaylist: ((String) -> Unit)? = null,
+    val isLocalPlaylist: Boolean = false
 )
 
 @Composable
@@ -89,7 +91,11 @@ fun PlaylistScreenRoute(
                 viewModel.downloadPlaylist { allSongs ->
                     downloadViewModel.downloadAll(allSongs)
                 }
-            }
+            },
+            onRemoveSongFromPlaylist = if (successState?.playlistPage?.playlist?.id?.startsWith("LOCAL_") == true) {
+                { songId -> viewModel.removeSongFromPlaylist(songId) }
+            } else null,
+            isLocalPlaylist = successState?.playlistPage?.playlist?.id?.startsWith("LOCAL_") == true
         )
     }
 

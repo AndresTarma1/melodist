@@ -29,7 +29,7 @@ class RootComponent(
             is ScreenConfig.Search -> Child.Search(SearchComponent(componentContext, get()))
             is ScreenConfig.Library -> Child.Library(LibraryComponent(componentContext, get()))
             is ScreenConfig.Account -> Child.Account(AccountComponent(componentContext, get()))
-            is ScreenConfig.Settings -> Child.Settings
+            is ScreenConfig.Settings -> Child.Settings(SettingsComponent(componentContext, get()))
             is ScreenConfig.Album -> Child.Album(AlbumComponent(componentContext, config.browseId, get()))
             is ScreenConfig.Playlist -> Child.Playlist(PlaylistComponent(componentContext, config.playlistId, get()))
             is ScreenConfig.Artist -> Child.Artist(ArtistComponent(componentContext, config.artistId, get()))
@@ -58,7 +58,7 @@ class RootComponent(
         data class Search(val component: SearchComponent) : Child()
         data class Library(val component: LibraryComponent) : Child()
         data class Account(val component: AccountComponent) : Child()
-        data object Settings : Child()
+        data class Settings(val component: SettingsComponent) : Child()
         data class Album(val component: AlbumComponent) : Child()
         data class Playlist(val component: PlaylistComponent) : Child()
         data class Artist(val component: ArtistComponent) : Child()
@@ -73,6 +73,11 @@ class HomeComponent(componentContext: ComponentContext, val viewModel: HomeViewM
 class SearchComponent(
     componentContext: ComponentContext,
     val viewModel: SearchViewModel
+) : ComponentContext by componentContext
+
+class SettingsComponent(
+    componentContext: ComponentContext,
+    val viewModel: SettingsViewModel
 ) : ComponentContext by componentContext
 
 class LibraryComponent(

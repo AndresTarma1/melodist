@@ -11,7 +11,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Text
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,9 +35,12 @@ import com.example.melodist.player.PlaybackState
 import com.example.melodist.ui.components.artwork.LocalArtworkColors
 import com.example.melodist.ui.components.artwork.rememberArtworkColors
 import com.example.melodist.ui.themes.MelodistTheme
+import com.example.melodist.utils.LocalSnackbarHostState
 import com.example.melodist.utils.LocalDownloadViewModel
+import com.example.melodist.utils.LocalLibraryViewModel
 import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.DownloadViewModel
+import com.example.melodist.viewmodels.LibraryViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.kdroid.composetray.tray.api.Tray
 import dev.hydraulic.conveyor.control.SoftwareUpdateController
@@ -70,6 +75,7 @@ fun ApplicationScope.App(
     rootComponent: RootComponent,
     playerViewModel: PlayerViewModel,
     downloadViewModel: DownloadViewModel,
+    libraryViewModel: LibraryViewModel,
     userPreferences: UserPreferencesRepository,
     onExit: () -> Unit,
     windowState: WindowState,
@@ -78,6 +84,7 @@ fun ApplicationScope.App(
     val scope = rememberCoroutineScope()
 
     var updateInfo by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         val controller = SoftwareUpdateController.getInstance() ?: return@LaunchedEffect
@@ -176,6 +183,8 @@ fun ApplicationScope.App(
         ) {
             CompositionLocalProvider(
                 LocalArtworkColors provides artworkColors,
+                LocalSnackbarHostState provides snackbarHostState,
+                LocalLibraryViewModel provides libraryViewModel,
                 LocalPlayerViewModel provides playerViewModel,
                 LocalDownloadViewModel provides downloadViewModel,
                 com.example.melodist.utils.LocalUserPreferences provides userPreferences,
@@ -255,13 +264,10 @@ fun ApplicationScope.App(
                         )
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(surfaceColor)
-                    ) {
-                        NavigationDesktop(rootComponent)
-                    }
+
+                    NavigationDesktop(rootComponent)
+
+                    SnackbarHost(hostState = snackbarHostState)
                 }
             }
         }

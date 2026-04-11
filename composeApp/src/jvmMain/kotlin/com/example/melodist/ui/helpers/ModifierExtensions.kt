@@ -10,6 +10,7 @@ import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun Modifier.contextMenuArea(
@@ -17,19 +18,16 @@ fun Modifier.contextMenuArea(
     onHoverChange: ((Boolean) -> Unit)? = null,
     onMenuAction: (DpOffset) -> Unit
 ): Modifier = composed {
-    var itemHeight by remember { mutableStateOf(0) }
     val density = LocalDensity.current
 
     this
-        .onGloballyPositioned { itemHeight = it.size.height }
         .onPointerEvent(PointerEventType.Enter) { onHoverChange?.invoke(true) }
         .onPointerEvent(PointerEventType.Exit) { onHoverChange?.invoke(false) }
         .onPointerEvent(PointerEventType.Press) {
             if (enabled && it.button == PointerButton.Secondary) {
                 val position = it.changes.first().position
                 val xDp = with(density) { position.x.toDp() }
-                val yDp = with(density) { (position.y - itemHeight).toDp() }
-                onMenuAction(DpOffset(xDp, yDp))
+                onMenuAction(DpOffset(xDp, 0.dp))
             }
         }
 }

@@ -10,8 +10,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,10 +38,11 @@ import com.example.melodist.viewmodels.SettingsViewModel
 
 @Composable
 fun SettingsScreen(
-    viewModel: SettingsViewModel = koinInject()
+    viewModel: SettingsViewModel
 ) {
     val scrollState       = rememberScrollState()
     val downloadViewModel = LocalDownloadViewModel.current
+    var showClearDownloadsDialog by remember { mutableStateOf(false) }
 
     val audioQuality   by viewModel.audioQuality.collectAsState()
     val themeMode      by viewModel.themeMode.collectAsState()
@@ -156,7 +161,7 @@ fun SettingsScreen(
                         icon          = Icons.Rounded.DeleteSweep,
                         btnLabel      = "Limpiar",
                         isDestructive = true,
-                        onClick       = { downloadViewModel.clearCache() }
+                        onClick       = { showClearDownloadsDialog = true }
                     )
                 }
 
@@ -171,6 +176,33 @@ fun SettingsScreen(
                     .align(Alignment.CenterEnd)
                     .fillMaxHeight()
                     .padding(end = 2.dp, top = 4.dp, bottom = 4.dp)
+            )
+        }
+
+        if (showClearDownloadsDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearDownloadsDialog = false },
+                title = { Text("Limpiar caché de descargas") },
+                text = {
+                    Text(
+                        "Se eliminarán todas las descargas guardadas en caché. Esta acción no se puede deshacer."
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            downloadViewModel.clearCache()
+                            showClearDownloadsDialog = false
+                        }
+                    ) {
+                        Text("Limpiar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearDownloadsDialog = false }) {
+                        Text("Cancelar")
+                    }
+                }
             )
         }
     }
@@ -409,7 +441,7 @@ private fun AboutCard() {
             // Badge corregido utilizando tokens correctos de M3
             Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primaryContainer) {
                 Text(
-                    text = "v1.0.3",
+                    text = "v1.0.4",
                     style    = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                     color    = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)

@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -75,7 +76,8 @@ data class LibraryActions(
     val onRemoveAlbum: (String) -> Unit,
     val onRemoveArtist: (String) -> Unit,
     val onRemovePlaylist: (String) -> Unit,
-    val onRefreshYtm: () -> Unit
+    val onRefreshYtm: () -> Unit,
+    val onCreatePlaylist: (String) -> Unit
 )
 
 // ────────────────────────────────────────────────────────
@@ -114,7 +116,8 @@ fun LibraryScreenRoute(
             onRemoveAlbum = { viewModel.removeAlbum(it) },
             onRemoveArtist = { viewModel.removeArtist(it) },
             onRemovePlaylist = { viewModel.removePlaylist(it) },
-            onRefreshYtm = { viewModel.refreshYtmLibrary() }
+            onRefreshYtm = { viewModel.refreshYtmLibrary() },
+            onCreatePlaylist = { viewModel.createLocalPlaylist(it)}
         )
     }
 
@@ -136,6 +139,8 @@ fun LibraryScreen(
     actions: LibraryActions,
     playerViewModel: PlayerViewModel? = null
 ) {
+    var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var newPlaylistName by remember { mutableStateOf("") }
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
@@ -148,6 +153,16 @@ fun LibraryScreen(
                     )
                 },
                 actions = {
+                    IconButton(
+                        onClick = { showCreatePlaylistDialog = true },
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.PlaylistAdd,
+                            contentDescription = "Crear playlist local",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     // Mostrar botón refresh de YTM solo cuando hay sesión
                     if (state.ytmState !is YtmLibraryState.Idle) {
                         IconButton(
@@ -219,6 +234,37 @@ fun LibraryScreen(
                 )
             }
         }
+    }
+
+    if (showCreatePlaylistDialog) {
+        AlertDialog(
+            onDismissRequest = { showCreatePlaylistDialog = false },
+            title = { Text("Crear playlist local") },
+            text = {
+                OutlinedTextField(
+                    value = newPlaylistName,
+                    onValueChange = { newPlaylistName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Nombre") },
+                    singleLine = true
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val name = newPlaylistName.trim()
+                        if (name.isNotEmpty()) {
+                            actions.onCreatePlaylist(name)
+                            newPlaylistName = ""
+                            showCreatePlaylistDialog = false
+                        }
+                    }
+                ) { Text("Crear") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCreatePlaylistDialog = false }) { Text("Cancelar") }
+            }
+        )
     }
 }
 

@@ -37,9 +37,12 @@ import kotlin.io.encoding.ExperimentalEncodingApi
 class InnerTube {
     private var httpClient = createClient()
 
+    //Locale.getDefault().country
+    //Locale.getDefault().toLanguageTag()
+
     var locale = YouTubeLocale(
-        gl = Locale.getDefault().country,
-        hl = Locale.getDefault().toLanguageTag()
+        gl = Locale.getDefault().country.takeIf { it.isNotEmpty() } ?: "US",
+        hl = Locale.getDefault().toLanguageTag().takeIf { it != "und" && it.isNotEmpty()} ?: "en-US"
     )
     var visitorData: String? = null
     var dataSyncId: String? = null

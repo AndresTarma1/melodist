@@ -302,7 +302,7 @@ fun ScreenRouter(
         }
 
         is RootComponent.Child.Settings -> {
-            SettingsScreen()
+            SettingsScreen(viewModel = instance.component.viewModel)
         }
     }
 }

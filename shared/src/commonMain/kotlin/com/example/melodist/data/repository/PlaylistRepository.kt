@@ -140,6 +140,83 @@ class PlaylistRepository(
                     setVideoId = null
                 )
             }
+
+            database.savedPlaylistQueries.updateSongCountText("${songs.size} canciones", playlist.id)
+        }
+    }
+
+    suspend fun addSongToPlaylist(playlistId: String, song: SongItem) = withContext(Dispatchers.IO) {
+        val alreadyExists = database.playlistSongMapQueries.selectByPlaylist(playlistId).executeAsList()
+            .any { it.songId == song.id }
+        if (alreadyExists) return@withContext
+
+        val currentCount = database.playlistSongMapQueries.countByPlaylist(playlistId).executeAsOne()
+
+        database.songQueries.insertSongIfNotExists(
+            id = song.id,
+            title = song.title,
+            duration = song.duration?.toLong() ?: -1L,
+            thumbnailUrl = song.thumbnail,
+            albumId = song.album?.id,
+            albumName = song.album?.name,
+            explicit = if (song.explicit) 1L else 0L,
+            year = null,
+            date = null,
+            dateModified = null,
+            liked = 0L,
+            likedDate = null,
+            totalPlayTime = 0L,
+            inLibrary = null,
+            dateDownload = null,
+            isLocal = 0L,
+            libraryAddToken = null,
+            libraryRemoveToken = null,
+            lyricsOffset = 0L,
+            romanizeLyrics = 1L,
+            isAgeRestricted = 0L,
+            isDownloaded = 0L,
+            isUploaded = 0L,
+            isVideo = 0L
+        )
+
+        song.artists.forEachIndexed { artistIdx, artist ->
+            val artistId = artist.id ?: return@forEachIndexed
+            database.artistQueries.insertArtistIfNotExists(
+                id = artistId,
+                name = artist.name,
+                thumbnailUrl = null,
+                channelId = null,
+                lastUpdateTime = 0L,
+                bookmarkedAt = null,
+                isLocal = 0L
+            )
+            database.songArtistMapQueries.insertSongArtistMap(
+                songId = song.id,
+                artistId = artistId,
+                position = artistIdx.toLong()
+            )
+        }
+
+        database.playlistSongMapQueries.insertPlaylistSongMap(
+            playlistId = playlistId,
+            songId = song.id,
+            position = currentCount,
+            setVideoId = null
+        )
+
+        database.savedPlaylistQueries.selectById(playlistId).executeAsOneOrNull()?.let {
+            database.savedPlaylistQueries.updateSongCountText("${currentCount + 1} canciones", playlistId)
+        }
+    }
+
+    suspend fun removeSongFromPlaylist(playlistId: String, songId: String) = withContext(Dispatchers.IO) {
+        val rows = database.playlistSongMapQueries.selectByPlaylist(playlistId).executeAsList()
+        val row = rows.firstOrNull { it.songId == songId } ?: return@withContext
+        database.playlistSongMapQueries.deletePlaylistSongMap(row.id)
+
+        val remaining = database.playlistSongMapQueries.countByPlaylist(playlistId).executeAsOne()
+        database.savedPlaylistQueries.selectById(playlistId).executeAsOneOrNull()?.let {
+            database.savedPlaylistQueries.updateSongCountText("${remaining} canciones", playlistId)
         }
     }
 

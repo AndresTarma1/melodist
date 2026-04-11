@@ -63,6 +63,14 @@ class AccountViewModel : ViewModel() {
     fun logout() {
         AccountManager.clearCookie()
         _cookieInput.value = ""
+        _cookieWarnings.value = emptyList()
+        _uiState.value = AccountState.NotLoggedIn
+    }
+
+    fun reset() {
+        AccountManager.clearCookie()
+        _cookieInput.value = ""
+        _cookieWarnings.value = emptyList()
         _uiState.value = AccountState.NotLoggedIn
     }
 

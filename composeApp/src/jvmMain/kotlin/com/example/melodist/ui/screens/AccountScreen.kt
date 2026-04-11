@@ -13,7 +13,6 @@ import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.*
-import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +39,22 @@ import com.example.melodist.viewmodels.AccountViewModel
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.metrolist.innertube.models.PlaylistItem
 
+data class AccountScreenState(
+    val uiState: AccountState = AccountState.NotLoggedIn,
+    val cookieInput: String = "",
+    val cookieWarnings: List<String> = emptyList(),
+)
+
+data class AccountActions(
+    val onCookieInputChange: (String) -> Unit,
+    val onLogin: () -> Unit,
+    val onLogout: () -> Unit,
+    val onReset: () -> Unit,
+    val onRetry: () -> Unit,
+    val onRefreshPlaylists: () -> Unit,
+    val onNavigate: (Route) -> Unit,
+)
+
 // ─── Route wrapper ────────────────────────────────────────────
 
 @Composable
@@ -54,17 +69,27 @@ fun AccountScreenRoute(
     val cookieInput by viewModel.cookieInput.collectAsState()
     val cookieWarnings by viewModel.cookieWarnings.collectAsState()
 
-    AccountScreen(
+    val state = AccountScreenState(
         uiState = uiState,
         cookieInput = cookieInput,
         cookieWarnings = cookieWarnings,
-        onCookieInputChange = { viewModel.onCookieInputChange(it) },
-        onLogin = { viewModel.login() },
-        onLogout = { viewModel.logout() },
-        onRetry = { viewModel.retry() },
-        onRefreshPlaylists = { viewModel.refreshPlaylists() },
-        onNavigate = onNavigate,
-        playerViewModel = playerViewModel
+    )
+
+    val actions = remember(viewModel, onNavigate) {
+        AccountActions(
+            onCookieInputChange = { viewModel.onCookieInputChange(it) },
+            onLogin = { viewModel.login() },
+            onLogout = { viewModel.logout() },
+            onReset = { viewModel.reset() },
+            onRetry = { viewModel.retry() },
+            onRefreshPlaylists = { viewModel.refreshPlaylists() },
+            onNavigate = onNavigate,
+        )
+    }
+
+    AccountScreen(
+        state = state,
+        actions = actions,
     )
 }
 
@@ -73,16 +98,8 @@ fun AccountScreenRoute(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountScreen(
-    uiState: AccountState,
-    cookieInput: String,
-    cookieWarnings: List<String> = emptyList(),
-    onCookieInputChange: (String) -> Unit,
-    onLogin: () -> Unit,
-    onLogout: () -> Unit,
-    onRetry: () -> Unit,
-    onRefreshPlaylists: () -> Unit,
-    onNavigate: (Route) -> Unit,
-    playerViewModel: PlayerViewModel? = null
+    state: AccountScreenState,
+    actions: AccountActions,
 ) {
     Scaffold(
         containerColor = Color.Transparent,
@@ -96,9 +113,9 @@ fun AccountScreen(
                     )
                 },
                 actions = {
-                    if (uiState is AccountState.LoggedIn) {
+                    if (state.uiState is AccountState.LoggedIn) {
                         IconButton(
-                            onClick = onLogout,
+                            onClick = actions.onLogout,
                             modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
                         ) {
                             Icon(
@@ -119,37 +136,36 @@ fun AccountScreen(
                 .padding(innerPadding)
         ) {
             AnimatedContent(
-                targetState = uiState,
+                targetState = state.uiState,
                 transitionSpec = {
                     fadeIn(tween(300)) togetherWith fadeOut(tween(200))
                 },
                 label = "accountContent"
-            ) { state ->
-                when (state) {
+            ) { contentState ->
+                when (contentState) {
                     is AccountState.NotLoggedIn -> LoginSection(
-                        cookieInput = cookieInput,
-                        cookieWarnings = cookieWarnings,
-                        onCookieInputChange = onCookieInputChange,
-                        onLogin = onLogin
+                        cookieInput = state.cookieInput,
+                        cookieWarnings = state.cookieWarnings,
+                        onCookieInputChange = actions.onCookieInputChange,
+                        onLogin = actions.onLogin
                     )
                     is AccountState.Loading -> LoadingSection()
                     is AccountState.LoggedIn -> LoggedInSection(
-                        state = state,
-                        onRefresh = onRefreshPlaylists,
-                        onNavigate = onNavigate,
-                        playerViewModel = playerViewModel
+                        state = contentState,
+                        onRefresh = actions.onRefreshPlaylists,
+                        onNavigate = actions.onNavigate,
                     )
                     is AccountState.Error -> ErrorSection(
-                        message = state.message,
-                        onRetry = onRetry,
-                        onClear = onLogout
+                        message = contentState.message,
+                        onRetry = actions.onRetry,
+                        onReset = actions.onReset
                     )
                     is AccountState.CookieExpired -> CookieExpiredSection(
-                        cookieInput = cookieInput,
-                        cookieWarnings = cookieWarnings,
-                        onCookieInputChange = onCookieInputChange,
-                        onRenew = onLogin,
-                        onLogout = onLogout
+                        cookieInput = state.cookieInput,
+                        cookieWarnings = state.cookieWarnings,
+                        onCookieInputChange = actions.onCookieInputChange,
+                        onRenew = actions.onLogin,
+                        onLogout = actions.onLogout
                     )
                 }
             }
@@ -169,254 +185,124 @@ private fun LoginSection(
     var showCookie by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+    Box(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        contentAlignment = Alignment.TopCenter
     ) {
-        Spacer(Modifier.height(16.dp))
-
-        // Ícono de cuenta
-        Box(
-            modifier = Modifier
-                .size(96.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
-            contentAlignment = Alignment.Center
+        Column(
+            modifier = Modifier.widthIn(max = 680.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Icon(
-                Icons.Default.Person,
-                contentDescription = null,
-                modifier = Modifier.size(52.dp),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
-
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                "Iniciar sesión",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(8.dp))
+            Box(
+                modifier = Modifier.size(84.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+            Text("Iniciar sesión", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(
                 "Conecta tu cuenta de YouTube Music para ver tus playlists, historial y recomendaciones personalizadas",
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-        }
 
-        // Card de instrucciones
-        AnimatedVisibility(visible = showHelp) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-                ),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(
-                        "Cómo obtener tu cookie",
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    HelpStep(
-                        number = "1",
-                        text = "Abre music.youtube.com en tu navegador e inicia sesión"
-                    )
-                    HelpStep(
-                        number = "2",
-                        text = "Abre las herramientas de desarrollador (F12)"
-                    )
-                    HelpStep(
-                        number = "3",
-                        text = "Ve a la pestaña Application → Storage → Cookies"
-                    )
-                    HelpStep(
-                        number = "4",
-                        text = "O en la pestaña Network, busca cualquier petición a music.youtube.com y copia el valor del header 'cookie'"
-                    )
-                    HelpStep(
-                        number = "5",
-                        text = "Pega el valor completo en el campo de abajo"
-                    )
-                }
+            TextButton(onClick = { showHelp = !showHelp }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                Icon(if (showHelp) Icons.Default.ExpandLess else Icons.Default.ExpandMore, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(if (showHelp) "Ocultar ayuda" else "¿Cómo obtengo la cookie?")
             }
-        }
 
-        // Botón de ayuda
-        TextButton(
-            onClick = { showHelp = !showHelp },
-            modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
-        ) {
-            Icon(
-                if (showHelp) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(Modifier.width(4.dp))
-            Text(if (showHelp) "Ocultar ayuda" else "¿Cómo obtengo la cookie?")
-        }
-
-        // Campo de cookie
-        OutlinedTextField(
-            value = cookieInput,
-            onValueChange = onCookieInputChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Cookie de YouTube Music") },
-            placeholder = { Text("HSID=...; SSID=...; APISID=...", style = MaterialTheme.typography.bodySmall) },
-            visualTransformation = if (showCookie) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Password,
-                imeAction = ImeAction.Done
-            ),
-            keyboardActions = KeyboardActions(onDone = { if (cookieInput.isNotBlank()) onLogin() }),
-            trailingIcon = {
-                IconButton(
-                    onClick = { showCookie = !showCookie },
-                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+            AnimatedVisibility(visible = showHelp) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Icon(
-                        if (showCookie) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = if (showCookie) "Ocultar" else "Mostrar"
-                    )
-                }
-            },
-            shape = RoundedCornerShape(14.dp),
-            minLines = 2,
-            maxLines = 4,
-            supportingText = {
-                Text(
-                    "${cookieInput.length} caracteres",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        )
-
-        // Advertencias de diagnóstico de la cookie (en tiempo real)
-        AnimatedVisibility(visible = cookieWarnings.isNotEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
-                ),
-                shape = RoundedCornerShape(14.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            Icons.Default.Warning,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                        Text(
-                            "Advertencias sobre la cookie",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
+                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Cómo obtener tu cookie", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleSmall)
+                        HelpStep("1", "Abre music.youtube.com e inicia sesión")
+                        HelpStep("2", "Abre F12 → Network")
+                        HelpStep("3", "Copia el header 'cookie' de una petición")
+                        HelpStep("4", "Pega el valor completo abajo")
                     }
-                    cookieWarnings.forEach { warning ->
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            Text(
-                                "•",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                            Text(
-                                warning,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.weight(1f)
-                            )
+                }
+            }
+
+            OutlinedTextField(
+                value = cookieInput,
+                onValueChange = onCookieInputChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Cookie de YouTube Music") },
+                placeholder = { Text("HSID=...; SSID=...; APISID=...", style = MaterialTheme.typography.bodySmall) },
+                visualTransformation = if (showCookie) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = { if (cookieInput.isNotBlank()) onLogin() }),
+                trailingIcon = {
+                    IconButton(onClick = { showCookie = !showCookie }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                        Icon(if (showCookie) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = if (showCookie) "Ocultar" else "Mostrar")
+                    }
+                },
+                shape = RoundedCornerShape(14.dp),
+                minLines = 2,
+                maxLines = 3,
+                supportingText = {
+                    Text("${cookieInput.length} caracteres", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            )
+
+            AnimatedVisibility(visible = cookieWarnings.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Advertencias", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onErrorContainer)
+                        cookieWarnings.take(3).forEach { warning ->
+                            Text("• $warning", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                        }
+                        if (cookieWarnings.size > 3) {
+                            Text("...", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                         }
                     }
                 }
             }
-        }
 
-        // Botón de inicio de sesión
-        Button(
-            onClick = onLogin,
-            enabled = cookieInput.isNotBlank(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .pointerHoverIcon(PointerIcon.Hand),
-            shape = RoundedCornerShape(14.dp)
-        ) {
-            Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Iniciar sesión", fontWeight = FontWeight.SemiBold)
-        }
+            Button(
+                onClick = onLogin,
+                enabled = cookieInput.isNotBlank(),
+                modifier = Modifier.fillMaxWidth().height(52.dp).pointerHoverIcon(PointerIcon.Hand),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Login, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Iniciar sesión", fontWeight = FontWeight.SemiBold)
+            }
 
-        // Aviso de privacidad + ruta del archivo
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-            ),
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Icon(
-                        Icons.Default.Shield,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp).padding(top = 1.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+            Card(
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        "Tu cookie se guarda localmente en este dispositivo y solo se usa para comunicarse con YouTube Music. Nunca se envía a servidores externos.",
+                        "La cookie se guarda localmente en este dispositivo y solo se usa para comunicarse con YouTube Music.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                }
-                // Mostrar ruta del archivo de cookie
-                val cookiePath = remember {
-                    com.example.melodist.data.AppDirs.cookieFile.absolutePath
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.FolderOpen,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
                     Text(
-                        cookiePath,
+                        com.example.melodist.data.AppDirs.cookieFile.absolutePath,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
         }
-
-        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -472,50 +358,56 @@ private fun LoadingSection() {
 // ─── Error Section ────────────────────────────────────────────
 
 @Composable
-private fun ErrorSection(message: String, onRetry: () -> Unit, onClear: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+private fun ErrorSection(message: String, onRetry: () -> Unit, onReset: () -> Unit) {
+    Box(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            Icons.Default.ErrorOutline,
-            contentDescription = null,
-            modifier = Modifier.size(64.dp),
-            tint = MaterialTheme.colorScheme.error
-        )
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "Error de autenticación",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(24.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(
-                onClick = onClear,
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+        Card(
+            modifier = Modifier.fillMaxWidth().widthIn(max = 560.dp),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Limpiar cookie")
-            }
-            Button(
-                onClick = onRetry,
-                modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
-            ) {
-                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(4.dp))
-                Text("Reintentar")
+                Icon(
+                    Icons.Default.ErrorOutline,
+                    contentDescription = null,
+                    modifier = Modifier.size(56.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Text(
+                    "No se pudo cargar la cuenta",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedButton(
+                        onClick = onReset,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Volver al login")
+                    }
+                    Button(
+                        onClick = onRetry,
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Reintentar")
+                    }
+                }
             }
         }
     }
@@ -528,7 +420,6 @@ private fun LoggedInSection(
     state: AccountState.LoggedIn,
     onRefresh: () -> Unit,
     onNavigate: (Route) -> Unit,
-    playerViewModel: PlayerViewModel?
 ) {
     val scrollState = rememberScrollState()
 
@@ -904,170 +795,98 @@ private fun CookieExpiredSection(
 ) {
     var showCookie by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+    Box(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        contentAlignment = Alignment.TopCenter
     ) {
-        Spacer(Modifier.height(16.dp))
-
-        Box(
-            modifier = Modifier
-                .size(96.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.errorContainer),
-            contentAlignment = Alignment.Center
+        Column(
+            modifier = Modifier.widthIn(max = 680.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Icon(
-                Icons.Default.LockClock,
-                contentDescription = null,
-                modifier = Modifier.size(52.dp),
-                tint = MaterialTheme.colorScheme.onErrorContainer
-            )
-        }
-
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                "Sesión expirada",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
             Spacer(Modifier.height(8.dp))
+            Box(
+                modifier = Modifier.size(84.dp).clip(CircleShape).background(MaterialTheme.colorScheme.errorContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.LockClock, contentDescription = null, modifier = Modifier.size(44.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+            }
+            Text("Sesión expirada", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(
-                "Tu cookie de YouTube Music ha expirado. Las cookies de sesión de Google tienen una vida útil de 2 a 4 semanas. Necesitas obtener una nueva desde tu navegador.",
-                style = MaterialTheme.typography.bodyMedium,
+                "Tu cookie expiró. Puedes pegar una nueva o volver al login.",
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
-        }
 
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
-            ),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Info,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        "¿Por qué expiran las cookies?",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-                Text(
-                    "Google invalida las cookies de sesión periódicamente por seguridad. No es un error de la app — es el comportamiento estándar de las cuentas de Google.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.2f))
-                Text(
-                    "Para renovarla: abre music.youtube.com en tu navegador, inicia sesión, ve a F12 → Red → cualquier petición → copia el header 'cookie' completo.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer
-                )
-            }
-        }
-
-        OutlinedTextField(
-            value = cookieInput,
-            onValueChange = onCookieInputChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Nueva cookie de YouTube Music") },
-            placeholder = { Text("HSID=...; SSID=...; SAPISID=...", style = MaterialTheme.typography.bodySmall) },
-            visualTransformation = if (showCookie) VisualTransformation.None else PasswordVisualTransformation(),
-            trailingIcon = {
-                IconButton(
-                    onClick = { showCookie = !showCookie },
-                    modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)
-                ) {
-                    Icon(
-                        if (showCookie) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = null
-                    )
-                }
-            },
-            shape = RoundedCornerShape(14.dp),
-            minLines = 2,
-            maxLines = 4,
-            supportingText = {
-                Text(
-                    "${cookieInput.length} caracteres",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        )
-
-        AnimatedVisibility(visible = cookieWarnings.isNotEmpty()) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
-                ),
-                shape = RoundedCornerShape(14.dp)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f)),
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    cookieWarnings.forEach { warning ->
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            Text("•", style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer)
-                            Text(warning, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                modifier = Modifier.weight(1f))
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Renueva la cookie", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Abre music.youtube.com, inicia sesión y copia el header 'cookie' de una petición de red.", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+
+            OutlinedTextField(
+                value = cookieInput,
+                onValueChange = onCookieInputChange,
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Nueva cookie de YouTube Music") },
+                placeholder = { Text("HSID=...; SSID=...; SAPISID=...", style = MaterialTheme.typography.bodySmall) },
+                visualTransformation = if (showCookie) VisualTransformation.None else PasswordVisualTransformation(),
+                trailingIcon = {
+                    IconButton(onClick = { showCookie = !showCookie }, modifier = Modifier.pointerHoverIcon(PointerIcon.Hand)) {
+                        Icon(if (showCookie) Icons.Default.VisibilityOff else Icons.Default.Visibility, contentDescription = null)
+                    }
+                },
+                shape = RoundedCornerShape(14.dp),
+                minLines = 2,
+                maxLines = 3,
+                supportingText = {
+                    Text("${cookieInput.length} caracteres", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            )
+
+            AnimatedVisibility(visible = cookieWarnings.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Advertencias", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onErrorContainer)
+                        cookieWarnings.take(3).forEach { warning ->
+                            Text("• $warning", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
                         }
                     }
                 }
             }
-        }
 
-        Button(
-            onClick = onRenew,
-            enabled = cookieInput.isNotBlank(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp)
-                .pointerHoverIcon(PointerIcon.Hand),
-            shape = RoundedCornerShape(14.dp)
-        ) {
-            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("Renovar sesión", fontWeight = FontWeight.SemiBold)
-        }
+            Button(
+                onClick = onRenew,
+                enabled = cookieInput.isNotBlank(),
+                modifier = Modifier.fillMaxWidth().height(52.dp).pointerHoverIcon(PointerIcon.Hand),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Renovar sesión", fontWeight = FontWeight.SemiBold)
+            }
 
-        OutlinedButton(
-            onClick = onLogout,
-            modifier = Modifier
-                .fillMaxWidth()
-                .pointerHoverIcon(PointerIcon.Hand),
-            shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error
-            ),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
-        ) {
-            Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(6.dp))
-            Text("Cerrar sesión")
+            OutlinedButton(
+                onClick = onLogout,
+                modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Cerrar sesión")
+            }
         }
-
-        Spacer(Modifier.height(16.dp))
     }
 }

@@ -81,7 +81,7 @@ class PlaylistViewModel(
             _continuation.value = null
 
             // Special case: local downloads playlist
-            if (playlistId == "downloaded_songs") {
+            if (playlistId == "LOCAL_DOWNLOADS") {
                 val downloadedSongs = songRepository.getDownloadedSongs()
                 _songs.value = downloadedSongs
                 _continuation.value = null
@@ -105,6 +105,28 @@ class PlaylistViewModel(
                     isSaved = true,
                 )
                 return@launch
+            }
+
+            // Special case: local playlists created in the app
+            if (playlistId.startsWith("LOCAL_")) {
+                val localPlaylist = repository.getCachedPlaylistItem(playlistId)
+                val localSongs = repository.getCachedPlaylistSongs(playlistId) ?: emptyList()
+
+                if (localPlaylist != null) {
+                    _songs.value = localSongs
+                    _continuation.value = null
+                    _uiState.value = PlaylistState.Success(
+                        playlistPage = PlaylistPage(
+                            playlist = localPlaylist,
+                            songs = localSongs,
+                            songsContinuation = null,
+                            continuation = null
+                        ),
+                        isFromCache = true,
+                        isSaved = true,
+                    )
+                    return@launch
+                }
             }
 
             // 1. Intentar cargar desde caché local
@@ -266,6 +288,29 @@ class PlaylistViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             val songs = fetchAllRemainingPages()
             onDownloadExecute(songs) // Ejecutamos la función que nos pasaron
+        }
+    }
+
+    fun removeSongFromPlaylist(songId: String) {
+        val playlistId = _currentPlaylistId.value ?: return
+        val state = _uiState.value as? PlaylistState.Success ?: return
+        if (!playlistId.startsWith("LOCAL_")) return
+
+        viewModelScope.launch {
+            repository.removeSongFromPlaylist(playlistId, songId)
+            val updatedSongs = _songs.value.filterNot { it.id == songId }
+            _songs.value = updatedSongs
+            val updatedPlaylist = state.playlistPage.playlist.copy(
+                songCountText = "${updatedSongs.size} canciones"
+            )
+            updateSuccess {
+                copy(
+                    playlistPage = state.playlistPage.copy(
+                        playlist = updatedPlaylist,
+                        songs = updatedSongs,
+                    ),
+                )
+            }
         }
     }
 }

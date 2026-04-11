@@ -16,10 +16,12 @@ import com.example.melodist.db.entities.PlaylistEntity
 import com.example.melodist.db.entities.SearchHistoryEntry
 import com.example.melodist.db.entities.SongEntity
 import com.example.melodist.db.entities.SongWithRelations
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import java.time.LocalDateTime
 
 class DatabaseDao(private val database: MelodistDatabase) {
@@ -95,16 +97,6 @@ class DatabaseDao(private val database: MelodistDatabase) {
     suspend fun insertLyrics(id: String, lyricsText: String, provider: String = "Unknown") = lyrics.insertLyrics(id, lyricsText, provider)
     fun downloadedSongs(): Flow<List<SongEntity>> = songs.downloadedSongs()
     fun downloadedSongsCount(): Flow<Long> = songs.downloadedSongsCount()
-    fun downloadedSongsWithRelations(): Flow<List<SongWithRelations>> =
-        downloadedSongs().map { songList ->
-            songList.map { song ->
-                SongWithRelations(
-                    song = song,
-                    artists = mappings.artistsForSong(song.id),
-                    album = mappings.albumForSong(song.id)
-                )
-            }
-        }
     suspend fun updateSongDownloadStatus(songId: String, isDownloaded: Boolean, dateDownload: Long?) = songs.updateSongDownloadStatus(songId, isDownloaded, dateDownload)
 
     suspend fun insertFormat(format: FormatEntity) = formats.insertFormat(format)
