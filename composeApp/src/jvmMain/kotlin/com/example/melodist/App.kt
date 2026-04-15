@@ -1,11 +1,19 @@
 package com.example.melodist
 
 import androidx.compose.animation.*
-import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ClosedCaption
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.OpenInFull
+import androidx.compose.material.icons.filled.OpenWith
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.QueuePlayNext
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
@@ -17,16 +25,13 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.ApplicationScope
 import androidx.compose.ui.window.WindowPlacement
-import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.WindowState
-import androidx.compose.ui.window.rememberWindowState
 import com.example.melodist.data.repository.ThemeMode
 import com.example.melodist.data.repository.UserPreferencesRepository
 import com.example.melodist.navigation.NavigationDesktop
@@ -42,6 +47,7 @@ import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.utils.LocalUserPreferences
 import com.example.melodist.viewmodels.DownloadViewModel
 import com.example.melodist.viewmodels.LibraryViewModel
+import com.example.melodist.viewmodels.PlayerUiState
 import com.example.melodist.viewmodels.PlayerViewModel
 import com.kdroid.composetray.tray.api.Tray
 import dev.hydraulic.conveyor.control.SoftwareUpdateController
@@ -49,7 +55,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import melodist.composeapp.generated.resources.Res
-import melodist.composeapp.generated.resources.music_icon
+import melodist.composeapp.generated.resources.music
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.jewel.foundation.theme.JewelTheme
 import org.jetbrains.jewel.intui.standalone.theme.IntUiTheme
@@ -64,7 +70,6 @@ import org.jetbrains.jewel.window.TitleBar
 import org.jetbrains.jewel.window.TitleBarScope
 import org.jetbrains.jewel.window.styling.TitleBarColors
 import org.jetbrains.jewel.window.styling.TitleBarStyle
-import java.awt.Color
 import java.awt.Dimension
 import java.awt.EventQueue
 import java.awt.Frame
@@ -107,19 +112,20 @@ fun ApplicationScope.App(
     }
 
 
-
     var isVisible by remember { mutableStateOf(false) }
     val minimizeToTray by remember { userPreferences.minimizeToTray }.collectAsState(false)
 
 
-
     fun handleExit() {
         scope.launch {
-            if(windowState.placement == WindowPlacement.Maximized) {
+            if (windowState.placement == WindowPlacement.Maximized) {
                 userPreferences.setWindowMaximized(true)
-            }else {
+            } else {
                 userPreferences.setWindowMaximized(false)
-                userPreferences.setWindowSize(windowState.size.width.value.toInt(), windowState.size.height.value.toInt())
+                userPreferences.setWindowSize(
+                    windowState.size.width.value.toInt(),
+                    windowState.size.height.value.toInt()
+                )
             }
             onExit()
         }
@@ -130,28 +136,26 @@ fun ApplicationScope.App(
     if (!isVisible || minimizeToTray) {
         val trayState by playerViewModel.uiState.collectAsState()
         val isPlaying = trayState.playbackState == PlaybackState.PLAYING
-        Tray(
-            icon = Icons.Filled.MusicNote,
-            tooltip = trayState.currentSong?.title ?: "Melodist",
-            primaryAction = { isVisible = !isVisible },
-        ) {
-            Item(label = if (isPlaying) "Pausar" else "Reproducir", onClick = { playerViewModel.togglePlayPause() })
-            Item(label = "Siguiente", onClick = { playerViewModel.next() })
-            Item(label = "Anterior", onClick = { playerViewModel.previous() })
-            Divider()
-            Item(label = "Abrir Melodist", onClick = { isVisible = true })
-            Item(label = "Salir", onClick = { handleExit() })
-        }
+        TrayCustom(
+            trayState = trayState,
+            isPlaying = isPlaying,
+            playerViewModel = playerViewModel,
+            onToggleVisibility = { isVisible = !isVisible },
+            onShow = { isVisible = true },
+            handleExit = { handleExit() }
+        )
     }
 
     // ── Theme ─────────────────────────────────────────────────────────────────
     val playerState by playerViewModel.uiState.collectAsState()
     val artworkColors = rememberArtworkColors(playerState.currentSong?.thumbnail)
-    val themeMode by remember { userPreferences.themeMode}.collectAsState(ThemeMode.SYSTEM)
+    val themeMode by remember { userPreferences.themeMode }.collectAsState(ThemeMode.SYSTEM)
     val isDark = when (themeMode) {
         ThemeMode.DARK -> true
         ThemeMode.LIGHT -> false
-        else -> { isSystemInDarkTheme()}
+        else -> {
+            isSystemInDarkTheme()
+        }
     }
 
     // ── Window ────────────────────────────────────────────────────────────────
@@ -195,7 +199,7 @@ fun ApplicationScope.App(
                     state = windowState,
                     visible = isVisible,
                     title = "Melodist",
-                    icon = painterResource(Res.drawable.music_icon),
+                    icon = painterResource(Res.drawable.music),
                 ) {
                     updateInfo?.let { (currentVersion, latestVersion) ->
                         AlertDialog(
@@ -204,9 +208,9 @@ fun ApplicationScope.App(
                             text = {
                                 Text(
                                     "Hay una nueva versión de Melodist disponible.\n\n" +
-                                        "Versión actual: $currentVersion\n" +
-                                        "Nueva versión: $latestVersion\n\n" +
-                                        "¿Deseas actualizar ahora?"
+                                            "Versión actual: $currentVersion\n" +
+                                            "Nueva versión: $latestVersion\n\n" +
+                                            "¿Deseas actualizar ahora?"
                                 )
                             },
                             confirmButton = {
@@ -263,11 +267,43 @@ fun ApplicationScope.App(
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TitleBar content
-// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+private fun ApplicationScope.TrayCustom(
+    trayState: PlayerUiState,
+    isPlaying: Boolean,
+    playerViewModel: PlayerViewModel,
+    onToggleVisibility: () -> Unit,
+    onShow: () -> Unit,
+    handleExit: () -> Unit
+) {
 
-
+    Tray(
+        icon = Res.drawable.music,
+        tooltip = trayState.currentSong?.title ?: "Melodist",
+        primaryAction = { onToggleVisibility() },
+    ) {
+        Item(
+            icon = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+            label = if (isPlaying) "Pausar" else "Reproducir",
+            onClick = { playerViewModel.togglePlayPause() }
+        )
+        Item(
+            icon = Icons.Filled.SkipNext,
+            label = "Siguiente",
+            onClick = { playerViewModel.next() })
+        Item(
+            icon = Icons.Filled.SkipPrevious,
+            label = "Anterior", onClick = { playerViewModel.previous() })
+        Divider()
+        Item(
+            icon = Icons.Filled.OpenInFull,
+            label = "Abrir Melodist", onClick = { onShow() })
+        Divider()
+        Item(
+            icon = Icons.Filled.ClosedCaption,
+            label = "Salir", onClick = { handleExit() })
+    }
+}
 
 @Composable
 private fun TitleBarScope.MelodistTitleBar(

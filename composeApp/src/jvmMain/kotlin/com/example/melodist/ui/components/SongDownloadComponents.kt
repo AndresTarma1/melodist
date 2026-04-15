@@ -64,6 +64,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.example.melodist.player.DownloadState
+import com.example.melodist.player.YTPlayerutils
 import com.example.melodist.ui.helpers.rememberSongDownloadState
 import com.example.melodist.utils.LocalSnackbarHostState
 import com.example.melodist.utils.LocalDownloadViewModel
@@ -72,6 +73,8 @@ import com.example.melodist.utils.LocalPlayerViewModel
 import com.example.melodist.viewmodels.LibraryPlaylistsViewModel
 import com.metrolist.innertube.models.SongItem
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.koin.compose.koinInject
 import kotlin.math.roundToInt
 import androidx.compose.foundation.lazy.LazyColumn
@@ -149,6 +152,22 @@ private fun rememberContextMenuPositionProvider(clickOffset: DpOffset): PopupPos
     }
 }
 
+private suspend fun SongItem.withMissingMetadataResolved(): SongItem {
+    val hasDuration = duration != null
+    if (hasDuration) return this
+
+    val playbackData = withContext(Dispatchers.IO) {
+        YTPlayerutils.playerResponseForMetadata(id).getOrNull()
+    }
+    val resolvedDuration = playbackData?.videoDetails?.lengthSeconds?.toIntOrNull()
+
+    return if (resolvedDuration != null && resolvedDuration > 0) {
+        copy(duration = resolvedDuration)
+    } else {
+        this
+    }
+}
+
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun SongContextMenu(
@@ -164,6 +183,7 @@ fun SongContextMenu(
     val downloadViewModel = LocalDownloadViewModel.current
     val downloadState by rememberSongDownloadState(song.id, downloadViewModel)
     val playerViewModel = LocalPlayerViewModel.current
+    val coroutineScope = rememberCoroutineScope()
     val playlistsViewModel: LibraryPlaylistsViewModel = koinInject()
     val positionProvider = rememberContextMenuPositionProvider(offset)
 
@@ -240,10 +260,16 @@ fun SongContextMenu(
         // --- SECCIÓN DE COLA ---
         if (showQueueActions) {
             StyledMenuItem("Reproducir a continuación", Icons.AutoMirrored.Filled.PlaylistAdd) {
-                playerViewModel.playNext(song)
+                coroutineScope.launch {
+                    val resolvedSong = song.withMissingMetadataResolved()
+                    playerViewModel.playNext(resolvedSong)
+                }
             }
             StyledMenuItem("Agregar al final de la cola", Icons.AutoMirrored.Filled.QueueMusic) {
-                playerViewModel.addToQueue(song)
+                coroutineScope.launch {
+                    val resolvedSong = song.withMissingMetadataResolved()
+                    playerViewModel.addToQueue(resolvedSong)
+                }
             }
         }
 
